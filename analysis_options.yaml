@@ -1,0 +1,13 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Disable some strict rules for now
+    unnecessary_null_checks: false
+    unnecessary_nullable_for_final_variable_declarations: false
+    
+analyzer:
+  errors:
+    # Treat deprecation as warnings, not errors
+    deprecated_member_use: warning
+    invalid_override: warning

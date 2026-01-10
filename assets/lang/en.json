@@ -1,0 +1,14 @@
+{
+    "app_title": "Bharat Mandi",
+    "login": "Login",
+    "mobile_number": "Mobile Number",
+    "send_otp": "Send OTP",
+    "dashboard": "Dashboard",
+    "new_transaction": "New Transaction",
+    "quantity": "Quantity",
+    "rate": "Rate",
+    "expenses": "Expenses",
+    "gross_amount": "Gross Amount",
+    "net_amount": "Net Amount",
+    "save": "Save"
+}
