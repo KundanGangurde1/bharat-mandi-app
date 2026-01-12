@@ -29,6 +29,7 @@ class ExpenseItem {
   final String calculationType;
   final String applyOn;
   final double defaultValue;
+  final double unitSize;
   final TextEditingController controller = TextEditingController();
 
   ExpenseItem({
@@ -37,6 +38,7 @@ class ExpenseItem {
     required this.calculationType,
     required this.applyOn,
     required this.defaultValue,
+    this.unitSize = 1.0,
   });
 }
 
@@ -100,6 +102,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
             calculationType: row['calculation_type'] as String? ?? 'per_unit',
             applyOn: row['apply_on'] as String? ?? 'farmer',
             defaultValue: (row['default_value'] as num?)?.toDouble() ?? 0.0,
+            unitSize: (row['unit_size'] as num?)?.toDouble() ?? 1.0,
           );
         }).toList();
 
@@ -257,29 +260,28 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     double totalAmt = totalAmount;
 
     for (var exp in expenseItems) {
+      // फक्त farmer खर्च net मधून वजा कर
+      if (exp.applyOn != 'farmer') continue;
+
       final entered = double.tryParse(exp.controller.text) ?? exp.defaultValue;
       if (entered <= 0) continue;
 
       double calculated = 0.0;
       switch (exp.calculationType) {
         case 'per_unit':
-          calculated = totalWeight * entered;
+          double unitSize =
+              exp.unitSize > 0 ? exp.unitSize : 1.0; // unitSize DB मधून
+          calculated = (totalWeight / unitSize) * entered; // योग्य फॉर्म्युला
           break;
         case 'per_bag':
-          calculated = totalDag * entered;
+          calculated = totalDag * entered; // डाग × मूल्य
           break;
         case 'percentage':
           calculated = totalAmt * (entered / 100);
           break;
       }
-
-      // फक्त farmer apply_on असलेले खर्च net मधून वजा कर
-      if (exp.applyOn == 'farmer') {
-        sum += calculated;
-      }
-      // trader apply_on असलेले खर्च फक्त recovery मध्ये जोडले जातील (save वेळी)
+      sum += calculated;
     }
-
     return sum;
   }
 
@@ -898,7 +900,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                               const Center(
                                   child:
                                       Text('कोणतेही खर्च प्रकार उपलब्ध नाहीत')),
-                            ...expenseItems.map((exp) {
+                            ...expenseItems
+                                .where((exp) => exp.applyOn == 'farmer')
+                                .map((exp) {
                               final enteredValue =
                                   double.tryParse(exp.controller.text) ??
                                       exp.defaultValue;
@@ -910,11 +914,13 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                   rows.fold(0, (s, r) => s + r.weight);
                               double totalAmt = totalAmount;
 
-                              double bagSize = 50.0;
+                              double unitSize =
+                                  exp.unitSize > 0 ? exp.unitSize : 1.0;
 
                               switch (exp.calculationType) {
                                 case 'per_unit':
-                                  calculatedAmount = totalWeight * enteredValue;
+                                  calculatedAmount =
+                                      (totalWeight / unitSize) * enteredValue;
                                   break;
                                 case 'per_bag':
                                   calculatedAmount = totalDag * enteredValue;
@@ -932,14 +938,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                     Expanded(
                                       flex: 3,
                                       child: Text(
-                                        '${exp.name} (${exp.calculationType == 'per_unit' ? 'प्रति युनिट' : exp.calculationType == 'per_bag' ? 'प्रति डाग' : 'टक्केवारी'}) ${exp.applyOn == 'trader' ? '(व्यापारी खर्च)' : ''}',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: exp.applyOn == 'trader'
-                                              ? Color(0xFFFF7043)
-                                              : Colors
-                                                  .black, // trader साठी वेगळा कलर optional
-                                        ),
+                                        '${exp.name} (${exp.calculationType == 'per_unit' ? 'प्रति युनिट' : exp.calculationType == 'per_bag' ? 'प्रति डाग' : 'टक्केवारी'})',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                     Expanded(
@@ -967,10 +968,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                       child: Text(
                                         '₹${calculatedAmount.toStringAsFixed(2)}',
                                         style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Color.fromARGB(255, 41, 128, 46),
-                                        ),
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 42, 124, 46)),
                                       ),
                                     ),
                                   ],
