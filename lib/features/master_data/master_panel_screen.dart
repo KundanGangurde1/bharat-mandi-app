@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'farmer/farmer_list_screen.dart';
 import 'trader/trader_list_screen.dart';
 import 'produce/produce_list_screen.dart';
-import 'expense/expense_list_screen.dart';
+import 'expense_type/expense_type_list_screen.dart';
 
 class MasterPanelScreen extends StatelessWidget {
   const MasterPanelScreen({super.key});

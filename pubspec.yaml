@@ -1,6 +1,7 @@
 name: bharat_mandi
-description: "Bharat Mandi Management App"
+description: A new Flutter project.
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
@@ -9,9 +10,17 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  sqflite_common_ffi: ^2.3.2
-  path: ^1.8.3
-  intl: ^0.19.0
+
+  cupertino_icons: ^1.0.2
+  sqflite: ^2.3.3+1
+  sqflite_common_ffi: ^2.3.3
+  path_provider: ^2.1.5
+  path: ^1.9.0
+  intl: ^0.19.0  # जर date साठी वापरत असशील
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
