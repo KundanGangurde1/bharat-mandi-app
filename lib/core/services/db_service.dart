@@ -27,7 +27,7 @@ class DBService {
 
     return await openDatabase(
       path,
-      version: 4, // transaction_expenses साठी version 4
+      version: 5, // transaction_expenses साठी version 4
       onCreate: (Database db, int version) async {
         // Farmers
         await db.execute('''
@@ -162,8 +162,9 @@ class DBService {
           ''');
         }
         if (oldVersion < 5) {
+          // नवीन version
           await db.execute(
-              'ALTER TABLE transactions ADD COLUMN dag REAL DEFAULT 0');
+              'ALTER TABLE expense_types ADD COLUMN calculation_type TEXT DEFAULT "per_dag"');
         }
       },
     );

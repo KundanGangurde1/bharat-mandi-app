@@ -14,8 +14,8 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final nameCtrl = TextEditingController();
-  String applyOn = 'farmer';
-  String mode = 'fixed';
+  String applyOn = 'farmer'; // 'farmer' or 'trader'
+  String calculationType = 'per_dag'; // 'per_dag', 'percentage', 'fixed'
   final defaultValueCtrl = TextEditingController();
   bool active = true;
   bool showInReport = true;
@@ -52,7 +52,8 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
 
         nameCtrl.text = expenseData!['name']?.toString() ?? '';
         applyOn = expenseData!['apply_on']?.toString() ?? 'farmer';
-        mode = expenseData!['mode']?.toString() ?? 'fixed';
+        calculationType =
+            expenseData!['calculation_type']?.toString() ?? 'per_dag';
         defaultValueCtrl.text =
             expenseData!['default_value']?.toString() ?? '0';
         active = expenseData!['active'] == 1;
@@ -78,7 +79,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
       return;
     }
 
-    if (mode == 'percentage' && defaultValue > 100) {
+    if (calculationType == 'percentage' && defaultValue > 100) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('टक्केवारी 100% पेक्षा जास्त असू शकत नाही')),
@@ -93,7 +94,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
       final expense = {
         'name': name,
         'apply_on': applyOn,
-        'mode': mode,
+        'calculation_type': calculationType, // येथे calculation_type वापरलं
         'default_value': defaultValue,
         'active': active ? 1 : 0,
         'show_in_report': showInReport ? 1 : 0,
@@ -119,6 +120,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
           content: Text(
             isEditMode ? 'खर्च प्रकार अपडेट झाला' : 'खर्च प्रकार जोडला गेला',
           ),
+          backgroundColor: Colors.green,
         ),
       );
 
@@ -128,6 +130,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: ${e.toString()}'),
+          backgroundColor: Colors.red,
         ),
       );
     } finally {
@@ -160,6 +163,8 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditMode ? 'खर्च प्रकार एडिट करा' : 'नवीन खर्च प्रकार'),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -175,7 +180,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                       controller: nameCtrl,
                       decoration: const InputDecoration(
                         labelText: 'खर्चाचे नाव *',
-                        hintText: 'हमाली, तोलाई, वाराई, कमीशन',
+                        hintText: 'हमाली, तोलाई, कमीशन, वाराई',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.text_fields),
                       ),
@@ -183,72 +188,64 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Apply On - UPDATED WITH RadioGroup
+                    // Apply On - Radio Group
                     const Text(
                       'लागू करा *',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(height: 8),
-                    // RadioGroup for Apply On
-                    RadioGroup(
-                      selected: applyOn,
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => applyOn = value);
-                        }
-                      },
-                      options: const [
-                        RadioOption(value: 'farmer', label: 'किसान'),
-                        RadioOption(value: 'trader', label: 'व्यापारी'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text('किसान'),
+                            value: 'farmer',
+                            groupValue: applyOn,
+                            onChanged: (value) {
+                              if (value != null)
+                                setState(() => applyOn = value);
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text('व्यापारी'),
+                            value: 'trader',
+                            groupValue: applyOn,
+                            onChanged: (value) {
+                              if (value != null)
+                                setState(() => applyOn = value);
+                            },
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
 
-                    // Mode
+                    // Calculation Type (Mode) - Dropdown
                     const Text(
-                      'मोड *',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      'गणना प्रकार *',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      initialValue: mode, // CHANGED from value to initialValue
+                      value: calculationType,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       items: const [
                         DropdownMenuItem(
-                          value: 'fixed',
-                          child: Text('₹ (Fixed Amount)'),
-                        ),
+                            value: 'per_dag', child: Text('प्रति डाग')),
                         DropdownMenuItem(
-                          value: 'percentage',
-                          child: Text('% (Percentage)'),
-                        ),
+                            value: 'percentage', child: Text('टक्केवारी (%)')),
                         DropdownMenuItem(
-                          value: 'per_piece',
-                          child: Text('प्रति नग (Per Piece)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'per_bag',
-                          child: Text('प्रति डाग (Per Bag)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'per_weight',
-                          child: Text('प्रति वजन (Per Weight)'),
-                        ),
+                            value: 'fixed', child: Text('फिक्स्ड अमाउंट')),
                       ],
                       onChanged: (value) {
-                        if (value != null) {
-                          setState(() => mode = value);
-                        }
+                        if (value != null)
+                          setState(() => calculationType = value);
                       },
                     ),
                     const SizedBox(height: 20),
@@ -257,13 +254,13 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                     TextFormField(
                       controller: defaultValueCtrl,
                       decoration: InputDecoration(
-                        labelText: mode == 'percentage'
+                        labelText: calculationType == 'percentage'
                             ? 'डिफॉल्ट टक्केवारी *'
                             : 'डिफॉल्ट व्हॅल्यू *',
-                        hintText: mode == 'percentage' ? '2' : '10',
+                        hintText: calculationType == 'percentage' ? '2' : '10',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.attach_money),
-                        suffixText: mode == 'percentage' ? '%' : '₹',
+                        suffixText: calculationType == 'percentage' ? '%' : '₹',
                       ),
                       keyboardType: TextInputType.number,
                       validator: _validateValue,
@@ -309,9 +306,9 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                             SizedBox(height: 4),
                             Text('• किसान खर्च: हमाली, तोलाई, वाराई'),
                             Text('• व्यापारी खर्च: कमीशन, अ‍ॅडव्हान्स'),
-                            Text('• रिपोर्टमध्ये न दाखवणे: कमीशन'),
-                            Text('• Fixed: ₹10, ₹50 (Fixed Amount)'),
-                            Text('• Percentage: 2%, 5% (Total च्या)'),
+                            Text('• प्रति डाग: डाग × मूल्य'),
+                            Text('• टक्केवारी: एकूण रक्कम × %'),
+                            Text('• फिक्स्ड: पर्ची प्रति फिक्स्ड अमाउंट'),
                           ],
                         ),
                       ),
@@ -350,39 +347,4 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
     defaultValueCtrl.dispose();
     super.dispose();
   }
-}
-
-// Custom RadioGroup Widget (to avoid deprecation)
-class RadioGroup extends StatelessWidget {
-  final String selected;
-  final ValueChanged<String?> onChanged;
-  final List<RadioOption> options;
-
-  const RadioGroup({
-    super.key,
-    required this.selected,
-    required this.onChanged,
-    required this.options,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: options.map((option) {
-        return RadioListTile(
-          title: Text(option.label),
-          value: option.value,
-          groupValue: selected,
-          onChanged: onChanged,
-        );
-      }).toList(),
-    );
-  }
-}
-
-class RadioOption {
-  final String value;
-  final String label;
-
-  const RadioOption({required this.value, required this.label});
 }

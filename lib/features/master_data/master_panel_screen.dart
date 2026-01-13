@@ -19,7 +19,7 @@ class MasterPanelScreen extends StatelessWidget {
             _tile(context, "🧑‍🌾 Farmers", const FarmerListScreen()),
             _tile(context, "💼 Traders", const TraderListScreen()),
             _tile(context, "🌾 Produce", const ProduceListScreen()),
-            _tile(context, "💸 Expenses", const ExpenseListScreen()),
+            _tile(context, "💸 Expenses", const ExpenseTypeListScreen()),
           ],
         ),
       ),

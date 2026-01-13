@@ -268,17 +268,17 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
       double calculated = 0.0;
       switch (exp.calculationType) {
-        case 'per_unit':
-          double unitSize =
-              exp.unitSize > 0 ? exp.unitSize : 1.0; // unitSize DB मधून
-          calculated = (totalWeight / unitSize) * entered; // योग्य फॉर्म्युला
-          break;
-        case 'per_bag':
+        case 'per_dag':
           calculated = totalDag * entered; // डाग × मूल्य
           break;
         case 'percentage':
           calculated = totalAmt * (entered / 100);
           break;
+        case 'fixed':
+          calculated = entered; // फिक्स्ड अमाउंट (प्रति पर्ची)
+          break;
+        default:
+          calculated = 0.0;
       }
       sum += calculated;
     }
@@ -887,7 +887,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                       onChanged: (value) {
                                         setState(() => expenseExpanded = value);
                                       },
-                                      activeColor: Colors.green,
+                                      activeThumbColor: Colors.green,
                                     ),
                                   ],
                                 ),
@@ -914,21 +914,19 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                   rows.fold(0, (s, r) => s + r.weight);
                               double totalAmt = totalAmount;
 
-                              double unitSize =
-                                  exp.unitSize > 0 ? exp.unitSize : 1.0;
-
                               switch (exp.calculationType) {
-                                case 'per_unit':
-                                  calculatedAmount =
-                                      (totalWeight / unitSize) * enteredValue;
-                                  break;
-                                case 'per_bag':
+                                case 'per_dag':
                                   calculatedAmount = totalDag * enteredValue;
                                   break;
                                 case 'percentage':
                                   calculatedAmount =
                                       totalAmt * (enteredValue / 100);
                                   break;
+                                case 'fixed':
+                                  calculatedAmount = enteredValue;
+                                  break;
+                                default:
+                                  calculatedAmount = 0.0;
                               }
 
                               return Padding(
@@ -938,7 +936,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                     Expanded(
                                       flex: 3,
                                       child: Text(
-                                        '${exp.name} (${exp.calculationType == 'per_unit' ? 'प्रति युनिट' : exp.calculationType == 'per_bag' ? 'प्रति डाग' : 'टक्केवारी'})',
+                                        '${exp.name} (${exp.calculationType == 'per_dag' ? 'प्रति डाग' : exp.calculationType == 'percentage' ? 'टक्केवारी' : 'फिक्स्ड'})',
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold),
                                       ),
@@ -970,13 +968,13 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             color: Color.fromARGB(
-                                                255, 42, 124, 46)),
+                                                255, 46, 125, 50)),
                                       ),
                                     ),
                                   ],
                                 ),
                               );
-                            }),
+                            }).toList(),
                             const SizedBox(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
