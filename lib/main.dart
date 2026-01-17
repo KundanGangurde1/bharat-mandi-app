@@ -79,7 +79,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/expense_controller.dart';
-
 import 'features/auth/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -87,7 +86,11 @@ import 'features/settings/settings_screen.dart';
 void main() {
   runApp(
     ChangeNotifierProvider<ExpenseController>(
-      create: (context) => ExpenseController()..loadExpenseTypes(),
+      create: (context) {
+        final controller = ExpenseController();
+        controller.loadExpenseTypes(); // async कॉल
+        return controller;
+      },
       child: const MyApp(),
     ),
   );

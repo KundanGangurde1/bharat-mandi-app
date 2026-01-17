@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../core/services/db_service.dart';
+import '../../core/expense_controller.dart';
 
 class TransactionRow {
   String traderCode;
@@ -411,7 +413,6 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           'created_at': selectedDate.toIso8601String(),
         });
       }
-
       if (expenseExpanded && expenseItems.isNotEmpty) {
         for (var exp in expenseItems) {
           final amount =
@@ -424,13 +425,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
               'created_at': DateTime.now().toIso8601String(),
             });
 
-            // trader खर्च ऑटो जोड
             if (exp.applyOn == 'trader' && rows.isNotEmpty) {
               final traderCode = rows.first.traderCode;
-              await db.rawUpdate(
-                'UPDATE traders SET opening_balance = opening_balance + ? WHERE code = ?',
-                [amount, traderCode],
-              );
+              await context
+                  .read<ExpenseController>()
+                  .addToTraderRecovery(traderCode, amount);
             }
           }
         }
@@ -863,32 +862,25 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           InkWell(
-                            onTap: () {
-                              setState(() {
-                                expenseExpanded = !expenseExpanded;
-                              });
-                            },
+                            onTap: () => setState(
+                                () => expenseExpanded = !expenseExpanded),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'खर्च विवरण',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green),
-                                ),
+                                const Text('खर्च विवरण',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green)),
                                 Row(
                                   children: [
                                     Text(expenseExpanded ? 'ON' : 'OFF'),
                                     const SizedBox(width: 8),
                                     Switch(
-                                      value: expenseExpanded,
-                                      onChanged: (value) {
-                                        setState(() => expenseExpanded = value);
-                                      },
-                                      activeThumbColor: Colors.green,
-                                    ),
+                                        value: expenseExpanded,
+                                        onChanged: (v) =>
+                                            setState(() => expenseExpanded = v),
+                                        activeColor: Colors.green),
                                   ],
                                 ),
                               ],
@@ -896,103 +888,104 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                           ),
                           if (expenseExpanded) ...[
                             const SizedBox(height: 16),
-                            if (expenseItems.isEmpty)
-                              const Center(
-                                  child:
-                                      Text('कोणतेही खर्च प्रकार उपलब्ध नाहीत')),
-                            ...expenseItems
-                                .where((exp) => exp.applyOn == 'farmer')
-                                .map((exp) {
-                              final enteredValue =
-                                  double.tryParse(exp.controller.text) ??
-                                      exp.defaultValue;
-                              double calculatedAmount = 0.0;
+                            Consumer<ExpenseController>(
+                              builder: (context, controller, child) {
+                                if (controller.expenseItems.isEmpty) {
+                                  return const Center(
+                                      child: Text(
+                                          'कोणतेही खर्च प्रकार उपलब्ध नाहीत'));
+                                }
 
-                              double totalDag =
-                                  rows.fold(0, (s, r) => s + r.dag);
-                              double totalWeight =
-                                  rows.fold(0, (s, r) => s + r.weight);
-                              double totalAmt = totalAmount;
+                                double totalDag =
+                                    rows.fold(0, (s, r) => s + r.dag);
+                                double totalAmt = totalAmount;
+                                controller.updateTotal(totalDag, totalAmt);
 
-                              switch (exp.calculationType) {
-                                case 'per_dag':
-                                  calculatedAmount = totalDag * enteredValue;
-                                  break;
-                                case 'percentage':
-                                  calculatedAmount =
-                                      totalAmt * (enteredValue / 100);
-                                  break;
-                                case 'fixed':
-                                  calculatedAmount = enteredValue;
-                                  break;
-                                default:
-                                  calculatedAmount = 0.0;
-                              }
+                                return Column(
+                                  children: controller.expenseItems.map((exp) {
+                                    if (exp.applyOn != 'farmer')
+                                      return const SizedBox.shrink();
 
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: Row(
+                                    final entered =
+                                        double.tryParse(exp.controller.text) ??
+                                            exp.defaultValue;
+                                    double calculated = 0.0;
+
+                                    switch (exp.calculationType) {
+                                      case 'per_dag':
+                                        calculated = totalDag * entered;
+                                        break;
+                                      case 'percentage':
+                                        calculated = totalAmt * (entered / 100);
+                                        break;
+                                      case 'fixed':
+                                        calculated = entered;
+                                        break;
+                                    }
+
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 16),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 3,
+                                            child: Text(
+                                              '${exp.name} (${exp.calculationType == 'per_dag' ? 'प्रति डाग' : exp.calculationType == 'percentage' ? 'टक्केवारी' : 'फिक्स्ड'})',
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextField(
+                                              controller: exp.controller,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              decoration: const InputDecoration(
+                                                hintText: 'मूल्य',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              onChanged: (_) =>
+                                                  controller.updateTotal(
+                                                      totalDag, totalAmt),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            '₹${calculated.toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Color.fromARGB(
+                                                    255, 46, 125, 50)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            Consumer<ExpenseController>(
+                              builder: (context, controller, child) {
+                                return Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Text(
-                                        '${exp.name} (${exp.calculationType == 'per_dag' ? 'प्रति डाग' : exp.calculationType == 'percentage' ? 'टक्केवारी' : 'फिक्स्ड'})',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: TextField(
-                                        controller: exp.controller,
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          hintText: 'मूल्य',
-                                          border: OutlineInputBorder(),
-                                        ),
-                                        onChanged: (_) => setState(() {}),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green[50],
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                            color: Colors.green[200]!),
-                                      ),
-                                      child: Text(
-                                        '₹${calculatedAmount.toStringAsFixed(2)}',
+                                    const Text('एकूण खर्च:',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16)),
+                                    Text(
+                                        '₹${controller.totalExpense.toStringAsFixed(2)}',
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: Color.fromARGB(
-                                                255, 46, 125, 50)),
-                                      ),
-                                    ),
+                                            fontSize: 18,
+                                            color: Colors.red)),
                                   ],
-                                ),
-                              );
-                            }).toList(),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'एकूण खर्च:',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16),
-                                ),
-                                Text(
-                                  '₹${totalExpense.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      color: Colors.red),
-                                ),
-                              ],
+                                );
+                              },
                             ),
                           ],
                         ],

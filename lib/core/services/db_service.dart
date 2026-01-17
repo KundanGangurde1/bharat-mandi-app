@@ -27,118 +27,123 @@ class DBService {
 
     return await openDatabase(
       path,
-      version: 5, // transaction_expenses साठी version 4
+      version: 6, // ← हे 6 करून calculation_type अॅड केलं
       onCreate: (Database db, int version) async {
-        // Farmers
-        await db.execute('''
-          CREATE TABLE farmers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            phone TEXT,
-            address TEXT,
-            opening_balance REAL DEFAULT 0,
-            active INTEGER DEFAULT 1,
-            created_at TEXT,
-            updated_at TEXT
-          )
-        ''');
+              await _createAllTables(db);
+            },
+            onUpgrade: (Database db, int oldVersion, int newVersion) async {
+              await _handleMigrations(db, oldVersion, newVersion);
+            },
+          );
+        }
 
-        // Traders
-        await db.execute('''
-          CREATE TABLE traders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            phone TEXT,
-            firm_name TEXT,
-            area TEXT,
-            opening_balance REAL DEFAULT 0,
-            active INTEGER DEFAULT 1,
-            created_at TEXT,
-            updated_at TEXT
-          )
-        ''');
+      static Future<void> _createAllTables(Database db) async {
+  // Farmers (तुझा जुना)
+  await db.execute('''
+    CREATE TABLE farmers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT,
+      address TEXT,
+      opening_balance REAL DEFAULT 0,
+      active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    )
+  ''');
 
-        // Produce
-        await db.execute('''
-          CREATE TABLE produce (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            variety TEXT,
-            category TEXT,
-            active INTEGER DEFAULT 1,
-            created_at TEXT,
-            updated_at TEXT
-          )
-        ''');
+  // Traders (तुझा जुना)
+  await db.execute('''
+    CREATE TABLE traders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT,
+      firm_name TEXT,
+      area TEXT,
+      opening_balance REAL DEFAULT 0,
+      active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    )
+  ''');
 
-        // Expense Types
-        await db.execute('''
-          CREATE TABLE expense_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            apply_on TEXT NOT NULL,
-            mode TEXT NOT NULL,
-            default_value REAL DEFAULT 0,
-            active INTEGER DEFAULT 1,
-            show_in_report INTEGER DEFAULT 1,
-            created_at TEXT,
-            updated_at TEXT
-          )
-        ''');
+  // Produce (तुझा जुना)
+  await db.execute('''
+    CREATE TABLE produce (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      variety TEXT,
+      category TEXT,
+      active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    )
+  ''');
 
-        // Transactions
-        await db.execute('''
-          CREATE TABLE transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            parchi_id TEXT,
-            farmer_code TEXT,
-            farmer_name TEXT,
-            trader_code TEXT,
-            trader_name TEXT,
-            produce_code TEXT,
-            produce_name TEXT,
-            unit TEXT,
-            quantity REAL,
-            rate REAL,
-            gross REAL,
-            hamali REAL DEFAULT 0,
-            tolai REAL DEFAULT 0,
-            advance REAL DEFAULT 0,
-            other_expense REAL DEFAULT 0,
-            total_expense REAL DEFAULT 0,
-            net REAL,
-            created_at TEXT
-          )
-        ''');
+  // Expense Types – हे महत्वाचे (calculation_type अॅड कर)
+  await db.execute('''
+    CREATE TABLE expense_types (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      apply_on TEXT NOT NULL,
+      calculation_type TEXT NOT NULL DEFAULT 'per_dag',  // ← हे नवीन आणि महत्वाचे
+      default_value REAL DEFAULT 0,
+      active INTEGER DEFAULT 1,
+      show_in_report INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    )
+  ''');
 
-        // Payments
+        // Transactions (पर्ची)
         await db.execute('''
-          CREATE TABLE payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            trader_code TEXT,
-            trader_name TEXT,
-            amount REAL,
-            payment_mode TEXT,
-            notes TEXT,
-            created_at TEXT
-          )
-        ''');
+      CREATE TABLE transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parchi_id TEXT NOT NULL,
+        farmer_code TEXT,
+        farmer_name TEXT,
+        trader_code TEXT,
+        trader_name TEXT,
+        produce_code TEXT,
+        produce_name TEXT,
+        dag REAL DEFAULT 0,
+        quantity REAL,
+        rate REAL,
+        gross REAL,
+        total_expense REAL DEFAULT 0,
+        net REAL,
+        created_at TEXT
+      )
+    ''');
 
-        // नवीन टेबल: transaction_expenses (एरर फिक्स)
+        // Transaction Expenses (खर्च लॉग)
         await db.execute('''
-          CREATE TABLE transaction_expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            parchi_id TEXT NOT NULL,
-            expense_type_id INTEGER NOT NULL,
-            amount REAL NOT NULL,
-            created_at TEXT NOT NULL
-          )
-        ''');
+      CREATE TABLE transaction_expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        parchi_id TEXT NOT NULL,
+        expense_type_id INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+        // Payments (वसूली)
+        await db.execute('''
+      CREATE TABLE payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trader_code TEXT,
+        trader_name TEXT,
+        amount REAL,
+        payment_mode TEXT,
+        notes TEXT,
+        created_at TEXT
+      )
+    ''');
       },
-      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+   static Future<void> _handleMigrations(Database db, int oldVersion, int newVersion) async {
         // V1 to V2
         if (oldVersion < 2) {
           // तुझा जुना migration (जर असेल तर)
@@ -165,6 +170,12 @@ class DBService {
           // नवीन version
           await db.execute(
               'ALTER TABLE expense_types ADD COLUMN calculation_type TEXT DEFAULT "per_dag"');
+        }
+        if (oldVersion < 6) {
+          // नवीन कॉलम अॅड कर
+          await db.execute(
+              'ALTER TABLE expense_types ADD COLUMN calculation_type TEXT DEFAULT "per_dag"');
+          print("Migration: Added 'calculation_type' column to expense_types");
         }
       },
     );

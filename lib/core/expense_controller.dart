@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../core/services/db_service.dart'; // तुझ्या db_service.dart चा पाथ
+import '../core/services/db_service.dart';
 
 class ExpenseItem {
   final int id;
@@ -48,11 +48,9 @@ class ExpenseController extends ChangeNotifier {
     }
   }
 
-  void updateTotal() {
+  void updateTotal([double totalDag = 0.0, double totalAmt = 0.0]) {
+    // optional arguments
     double sum = 0.0;
-    double totalDag = 0.0; // transaction screen ने set करेल
-    double totalWeight = 0.0;
-    double totalAmt = 0.0;
 
     for (var exp in expenseItems) {
       if (exp.applyOn != 'farmer') continue;
@@ -74,6 +72,7 @@ class ExpenseController extends ChangeNotifier {
       }
       sum += calculated;
     }
+
     totalExpense = sum;
     notifyListeners();
   }
