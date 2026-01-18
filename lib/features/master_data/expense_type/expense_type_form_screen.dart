@@ -52,7 +52,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
 
         nameCtrl.text = expenseData!['name']?.toString() ?? '';
         applyOn = expenseData!['apply_on']?.toString() ?? 'farmer';
-        calculationType =
+        calculationType = calculationType =
             expenseData!['calculation_type']?.toString() ?? 'per_dag';
         defaultValueCtrl.text =
             expenseData!['default_value']?.toString() ?? '0';

@@ -27,79 +27,79 @@ class DBService {
 
     return await openDatabase(
       path,
-      version: 6, // ← हे 6 करून calculation_type अॅड केलं
+      version: 6,
       onCreate: (Database db, int version) async {
-              await _createAllTables(db);
-            },
-            onUpgrade: (Database db, int oldVersion, int newVersion) async {
-              await _handleMigrations(db, oldVersion, newVersion);
-            },
-          );
-        }
+        await _createAllTables(db);
+      },
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        await _handleMigrations(db, oldVersion, newVersion);
+      },
+    );
+  }
 
-      static Future<void> _createAllTables(Database db) async {
-  // Farmers (तुझा जुना)
-  await db.execute('''
-    CREATE TABLE farmers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      code TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      phone TEXT,
-      address TEXT,
-      opening_balance REAL DEFAULT 0,
-      active INTEGER DEFAULT 1,
-      created_at TEXT,
-      updated_at TEXT
-    )
-  ''');
+  static Future<void> _createAllTables(Database db) async {
+    // Farmers
+    await db.execute('''
+      CREATE TABLE farmers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT,
+        address TEXT,
+        opening_balance REAL DEFAULT 0,
+        active INTEGER DEFAULT 1,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
 
-  // Traders (तुझा जुना)
-  await db.execute('''
-    CREATE TABLE traders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      code TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      phone TEXT,
-      firm_name TEXT,
-      area TEXT,
-      opening_balance REAL DEFAULT 0,
-      active INTEGER DEFAULT 1,
-      created_at TEXT,
-      updated_at TEXT
-    )
-  ''');
+    // Traders (खरेदीदार)
+    await db.execute('''
+      CREATE TABLE traders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT,
+        firm_name TEXT,
+        area TEXT,
+        opening_balance REAL DEFAULT 0,
+        active INTEGER DEFAULT 1,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
 
-  // Produce (तुझा जुना)
-  await db.execute('''
-    CREATE TABLE produce (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      code TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      variety TEXT,
-      category TEXT,
-      active INTEGER DEFAULT 1,
-      created_at TEXT,
-      updated_at TEXT
-    )
-  ''');
+    // Produce (माल)
+    await db.execute('''
+      CREATE TABLE produce (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        variety TEXT,
+        category TEXT,
+        active INTEGER DEFAULT 1,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
 
-  // Expense Types – हे महत्वाचे (calculation_type अॅड कर)
-  await db.execute('''
-    CREATE TABLE expense_types (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      apply_on TEXT NOT NULL,
-      calculation_type TEXT NOT NULL DEFAULT 'per_dag',  // ← हे नवीन आणि महत्वाचे
-      default_value REAL DEFAULT 0,
-      active INTEGER DEFAULT 1,
-      show_in_report INTEGER DEFAULT 1,
-      created_at TEXT,
-      updated_at TEXT
-    )
-  ''');
+    // Expense Types (खर्च प्रकार)
+    await db.execute('''
+      CREATE TABLE expense_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        apply_on TEXT NOT NULL,
+        calculation_type TEXT NOT NULL DEFAULT 'per_dag',
+        default_value REAL DEFAULT 0,
+        active INTEGER DEFAULT 1,
+        show_in_report INTEGER DEFAULT 1,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
 
-        // Transactions (पर्ची)
-        await db.execute('''
+    // Transactions (पर्ची)
+    await db.execute('''
       CREATE TABLE transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         parchi_id TEXT NOT NULL,
@@ -119,8 +119,8 @@ class DBService {
       )
     ''');
 
-        // Transaction Expenses (खर्च लॉग)
-        await db.execute('''
+    // Transaction Expenses (खर्च लॉग)
+    await db.execute('''
       CREATE TABLE transaction_expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         parchi_id TEXT NOT NULL,
@@ -130,8 +130,8 @@ class DBService {
       )
     ''');
 
-        // Payments (वसूली)
-        await db.execute('''
+    // Payments (वसूली)
+    await db.execute('''
       CREATE TABLE payments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trader_code TEXT,
@@ -142,44 +142,39 @@ class DBService {
         created_at TEXT
       )
     ''');
-      },
-   static Future<void> _handleMigrations(Database db, int oldVersion, int newVersion) async {
-        // V1 to V2
-        if (oldVersion < 2) {
-          // तुझा जुना migration (जर असेल तर)
-        }
-
-        // V2 to V3
-        if (oldVersion < 3) {
-          // तुझा जुना migration (जर असेल तर)
-        }
-
-        // V3 to V4: transaction_expenses टेबल अॅड
-        if (oldVersion < 4) {
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS transaction_expenses (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              parchi_id TEXT NOT NULL,
-              expense_type_id INTEGER NOT NULL,
-              amount REAL NOT NULL,
-              created_at TEXT NOT NULL
-            )
-          ''');
-        }
-        if (oldVersion < 5) {
-          // नवीन version
-          await db.execute(
-              'ALTER TABLE expense_types ADD COLUMN calculation_type TEXT DEFAULT "per_dag"');
-        }
-        if (oldVersion < 6) {
-          // नवीन कॉलम अॅड कर
-          await db.execute(
-              'ALTER TABLE expense_types ADD COLUMN calculation_type TEXT DEFAULT "per_dag"');
-          print("Migration: Added 'calculation_type' column to expense_types");
-        }
-      },
-    );
   }
+
+  static Future<void> _handleMigrations(
+      Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 6) {
+      await db.execute(
+          'ALTER TABLE expense_types ADD COLUMN calculation_type TEXT DEFAULT "per_dag"');
+      print("Migration: Added 'calculation_type' column to expense_types");
+    }
+  }
+
+  // static Future<void> resetDatabase() async {
+  //   await close();
+
+  //   final dbPath = await getDatabasesPath();
+  //   final path = join(dbPath, 'bharat_mandi.db');
+
+  //   final file = File(path);
+  //   if (await file.exists()) {
+  //     await file.delete();
+  //     print("Database deleted and will be recreated on next run");
+  //   }
+
+  //   _database = null;
+  //   _initialized = false;
+  // }
+
+  // static Future<void> close() async {
+  //   if (_database != null) {
+  //     await _database!.close();
+  //     _database = null;
+  //   }
+  // }
 
   // ============ VALIDATION METHODS ============
   static Future<bool> isCodeUnique(String code) async {
@@ -255,10 +250,10 @@ class DBService {
   static Future<int> addExpenseType({
     required String name,
     required String applyOn,
-    required String mode,
-    required double defaultValue,
+    required String calculation_type,
+    required double default_value,
     bool active = true,
-    bool showInReport = true,
+    bool show_in_report = true,
   }) async {
     final db = await database;
     final now = DateTime.now().toIso8601String();
@@ -266,10 +261,10 @@ class DBService {
     return await db.insert('expense_types', {
       'name': name,
       'apply_on': applyOn,
-      'mode': mode,
-      'default_value': defaultValue,
+      'calculation_type': calculation_type,
+      'default_value': default_value,
       'active': active ? 1 : 0,
-      'show_in_report': showInReport ? 1 : 0,
+      'show_in_report': show_in_report ? 1 : 0,
       'created_at': now,
     });
   }
@@ -311,7 +306,7 @@ class DBService {
     final file = File(path);
     if (await file.exists()) {
       await file.delete();
-      print("Database deleted: $path");
+      print("Database deleted and will be recreated on next run");
     }
 
     _database = null;
