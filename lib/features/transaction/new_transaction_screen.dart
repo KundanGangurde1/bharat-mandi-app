@@ -277,7 +277,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           calculated = totalAmt * (entered / 100);
           break;
         case 'fixed':
-          calculated = entered; // फिक्स्ड अमाउंट (प्रति पर्ची)
+          calculated = entered; // फिक्स्ड अमाउंट (प्रति पावती)
           break;
         default:
           calculated = 0.0;
@@ -434,7 +434,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           }
         }
       }
-      _showSnackBar("पर्ची सेव झाली! एकूण एंट्री: ${rows.length}",
+      _showSnackBar("पावती जतन झाली! एकूण एंट्री: ${rows.length}",
           isError: false);
       _resetForm();
     } catch (e) {
@@ -478,7 +478,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('नवीन पर्ची'),
+        title: const Text('नवीन पावती'),
         centerTitle: true,
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
@@ -503,7 +503,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'नवीन पर्ची तयार करा',
+                                  'नवीन पावती तयार करा',
                                   style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold),
@@ -596,7 +596,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'वर्तमान पर्ची',
+                              'वर्तमान पावती',
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -1074,7 +1074,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _resetForm,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('नवी पर्ची'),
+                    label: const Text('नवी पावती'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[300],
                       foregroundColor: Colors.black,
@@ -1088,7 +1088,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _saveTransaction,
                     icon: const Icon(Icons.save),
-                    label: const Text('पर्ची सेव करा',
+                    label: const Text('पावती जतन करा',
                         style: TextStyle(fontSize: 16)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,

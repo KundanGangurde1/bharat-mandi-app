@@ -199,7 +199,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                       children: [
                         Expanded(
                           child: RadioListTile<String>(
-                            title: const Text('किसान'),
+                            title: const Text('शेतकरी'),
                             value: 'farmer',
                             groupValue: applyOn,
                             onChanged: (value) {
@@ -304,11 +304,11 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             SizedBox(height: 4),
-                            Text('• किसान खर्च: हमाली, तोलाई, वाराई'),
+                            Text('• शेतकरी खर्च: हमाली, तोलाई, वाराई'),
                             Text('• व्यापारी खर्च: कमीशन, अ‍ॅडव्हान्स'),
                             Text('• प्रति डाग: डाग × मूल्य'),
                             Text('• टक्केवारी: एकूण रक्कम × %'),
-                            Text('• फिक्स्ड: पर्ची प्रति फिक्स्ड अमाउंट'),
+                            Text('• फिक्स्ड: पावती प्रति फिक्स्ड अमाउंट'),
                           ],
                         ),
                       ),

@@ -19,7 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Navigation items
   static const List<NavigationItem> _navItems = [
     NavigationItem(title: 'डॅशबोर्ड', icon: Icons.dashboard),
-    NavigationItem(title: 'नवीन पर्ची', icon: Icons.add_circle),
+    NavigationItem(title: 'नवीन पावती', icon: Icons.add_circle),
     NavigationItem(title: 'शेतकरी', icon: Icons.people),
     NavigationItem(title: 'व्यापारी', icon: Icons.business),
     NavigationItem(title: 'माल', icon: Icons.shopping_basket),
@@ -93,7 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: Icon(
                                 Icons.store,
                                 size: 40,
-                                color: Colors.green[700],
+                                color: const Color.fromARGB(255, 56, 142, 60),
                               ),
                             ),
                             const SizedBox(width: 20),
@@ -106,12 +106,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     style: TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.green[800],
+                                      color: const Color.fromARGB(
+                                          255, 46, 125, 50),
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   const Text(
-                                    'आजची तुमची व्यवसाय सुरू करा',
+                                    'व्यवसाय सुरू करा',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey,
@@ -149,13 +150,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Colors.orange,
                         ),
                         _buildStatCard(
-                          'आजच्या पर्च्या',
+                          'आजच्या पावत्या',
                           '5',
                           Icons.receipt,
                           Colors.green,
                         ),
                         _buildStatCard(
-                          'एकूण बकाया',
+                          'एकूण थकबाकी',
                           '₹25,430',
                           Icons.account_balance_wallet,
                           Colors.red,
@@ -189,7 +190,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         _buildActionCard(
                           context,
-                          'नवीन पर्ची',
+                          'नवीन पावती',
                           Icons.add_circle_outline,
                           Colors.green,
                           'नवीन व्यवहार तयार करा',
@@ -357,7 +358,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 });
               },
               type: BottomNavigationBarType.fixed,
-              selectedItemColor: Colors.green[700],
+              selectedItemColor: const Color.fromARGB(255, 56, 142, 60),
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.dashboard),
@@ -365,7 +366,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.add_circle),
-                  label: 'पर्ची',
+                  label: 'पावती',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.people),
@@ -391,7 +392,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // App Logo/Header
           Container(
             height: 150,
-            color: Colors.green[700],
+            color: const Color.fromARGB(255, 56, 142, 60),
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -402,7 +403,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Icon(
                     Icons.store,
                     size: 40,
-                    color: Colors.green[700],
+                    color: const Color.fromARGB(255, 56, 142, 60),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -437,15 +438,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: ListTile(
                     leading: Icon(
                       item.icon,
-                      color: isSelected ? Colors.green[700] : Colors.grey[600],
+                      color: isSelected
+                          ? const Color.fromARGB(255, 56, 142, 60)
+                          : Colors.grey[600],
                     ),
                     title: Text(
                       item.title,
                       style: TextStyle(
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.normal,
-                        color:
-                            isSelected ? Colors.green[700] : Colors.grey[700],
+                        color: isSelected
+                            ? const Color.fromARGB(255, 56, 142, 60)
+                            : const Color.fromARGB(255, 97, 97, 97),
                       ),
                     ),
                     onTap: () {
@@ -478,7 +482,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 8),
                 Text(
                   '© 2024 भारत मंडी',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: const Color.fromARGB(255, 117, 117, 117)),
                 ),
               ],
             ),
@@ -579,7 +585,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 subtitle,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[600],
+                  color: const Color.fromARGB(255, 117, 117, 117),
                 ),
               ),
             ],

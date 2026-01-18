@@ -153,29 +153,6 @@ class DBService {
     }
   }
 
-  // static Future<void> resetDatabase() async {
-  //   await close();
-
-  //   final dbPath = await getDatabasesPath();
-  //   final path = join(dbPath, 'bharat_mandi.db');
-
-  //   final file = File(path);
-  //   if (await file.exists()) {
-  //     await file.delete();
-  //     print("Database deleted and will be recreated on next run");
-  //   }
-
-  //   _database = null;
-  //   _initialized = false;
-  // }
-
-  // static Future<void> close() async {
-  //   if (_database != null) {
-  //     await _database!.close();
-  //     _database = null;
-  //   }
-  // }
-
   // ============ VALIDATION METHODS ============
   static Future<bool> isCodeUnique(String code) async {
     final db = await database;
