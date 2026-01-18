@@ -258,7 +258,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
     double sum = 0;
     double totalDag = rows.fold(0, (s, r) => s + r.dag);
-    double totalWeight = rows.fold(0, (s, r) => s + r.weight);
+    // double totalWeight = rows.fold(0, (s, r) => s + r.weight);
     double totalAmt = totalAmount;
 
     for (var exp in expenseItems) {
@@ -478,7 +478,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('नवीन पावती'),
+        title: const Text('नवीन पावती'), // नवीन नाम
         centerTitle: true,
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
@@ -490,31 +490,40 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // Farmer + Date in one line (compact)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(8), // स्पेस कमी
                       child: Row(
                         children: [
-                          const Icon(Icons.receipt_long,
-                              size: 40, color: Colors.green),
-                          const SizedBox(width: 16),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'नवीन पावती तयार करा',
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                Text(
-                                  'तारीख: ${DateFormat('dd/MM/yyyy').format(selectedDate)}',
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
-                              ],
+                            flex: 1,
+                            child: TextField(
+                              controller: farmerCodeCtrl,
+                              focusNode: farmerCodeFocus,
+                              decoration: const InputDecoration(
+                                labelText: 'शेतकरी कोड',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: lookupFarmer,
+                              onSubmitted: (_) => _handleFarmerCodeEnter(),
+                              textInputAction: TextInputAction.next,
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: TextField(
+                              controller: farmerNameCtrl,
+                              enabled: farmerNameEditable,
+                              decoration: const InputDecoration(
+                                labelText: 'शेतकरी नाव',
+                                border: OutlineInputBorder(),
+                              ),
+                              textInputAction: TextInputAction.next,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           IconButton(
                             icon: const Icon(Icons.calendar_today),
                             onPressed: () async {
@@ -529,335 +538,207 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                               }
                             },
                           ),
+                          Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
 
-                  // Farmer Section
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'शेतकरी माहिती',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: farmerCodeCtrl,
-                                  focusNode: farmerCodeFocus,
-                                  decoration: const InputDecoration(
-                                    labelText: 'शेतकरी कोड',
-                                    hintText: 'KM या 100',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onChanged: lookupFarmer,
-                                  onSubmitted: (_) => _handleFarmerCodeEnter(),
-                                  textInputAction: TextInputAction.next,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: farmerNameCtrl,
-                                  enabled: farmerNameEditable,
-                                  decoration: const InputDecoration(
-                                    labelText: 'शेतकरी नाव',
-                                    hintText: 'पूर्ण नाव',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  textInputAction: TextInputAction.next,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Current Transactions Table
+                  // Entry Table (ऑटो स्क्रॉल)
                   if (rows.isNotEmpty) ...[
                     Card(
                       child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(8), // स्पेस कमी
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'वर्तमान पावती',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green),
-                            ),
-                            const SizedBox(height: 12),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: DataTable(
-                                columns: const [
-                                  DataColumn(label: Text('व्यापारी')),
-                                  DataColumn(label: Text('माल')),
-                                  DataColumn(label: Text('डाग')),
-                                  DataColumn(label: Text('वजन')),
-                                  DataColumn(label: Text('भाव')),
-                                  DataColumn(label: Text('रक्कम')),
-                                ],
-                                rows: rows.map((row) {
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(Text(row.traderName)),
-                                      DataCell(Text(row.produceName)),
-                                      DataCell(
-                                          Text(row.dag.toStringAsFixed(0))),
-                                      DataCell(Text(row.weight.toString())),
-                                      DataCell(Text(
-                                          '₹${row.rate.toStringAsFixed(2)}')),
-                                      DataCell(Text(
-                                          '₹${row.total.toStringAsFixed(2)}')),
+                            const Text('वर्तमान पावती',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green)),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height:
+                                  200, // 6-7 एंट्रीसाठी हाइट – जास्त झालं तर स्क्रॉल
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.vertical,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: DataTable(
+                                    columns: const [
+                                      DataColumn(label: Text('व्यापारी')),
+                                      DataColumn(label: Text('माल')),
+                                      DataColumn(label: Text('डाग')),
+                                      DataColumn(label: Text('वजन')),
+                                      DataColumn(label: Text('भाव')),
+                                      DataColumn(label: Text('रक्कम')),
                                     ],
-                                  );
-                                }).toList(),
+                                    rows: rows.map((row) {
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(Text(row.traderName)),
+                                          DataCell(Text(row.produceName)),
+                                          DataCell(
+                                              Text(row.dag.toStringAsFixed(0))),
+                                          DataCell(Text(row.weight.toString())),
+                                          DataCell(Text(
+                                              '₹${row.rate.toStringAsFixed(2)}')),
+                                          DataCell(Text(
+                                              '₹${row.total.toStringAsFixed(2)}')),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                   ],
 
-                  // Produce Section
+                  // Produce + Trader in one line (compact)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'माल माहिती',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green),
+                          Expanded(
+                            child: TextField(
+                              controller: produceCodeCtrl,
+                              focusNode: produceCodeFocus,
+                              decoration: const InputDecoration(
+                                labelText: 'माल कोड',
+                                border: OutlineInputBorder(),
                               ),
-                              Row(
-                                children: [
-                                  const Text('लॉक'),
-                                  Switch(
-                                    value: produceLocked,
-                                    onChanged: (value) {
-                                      setState(() => produceLocked = value);
-                                    },
-                                    activeColor: Colors.green,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: produceCodeCtrl,
-                                  focusNode: produceCodeFocus,
-                                  decoration: const InputDecoration(
-                                    labelText: 'माल कोड',
-                                    hintText: 'AL',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onChanged: lookupProduce,
-                                  onSubmitted: (_) => _handleProduceCodeEnter(),
-                                  textInputAction: TextInputAction.next,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: produceNameCtrl,
-                                  readOnly: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'माल नाव',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Trader Section
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'व्यापारी माहिती',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: traderCodeCtrl,
-                                  focusNode: traderCodeFocus,
-                                  decoration: const InputDecoration(
-                                    labelText: 'व्यापारी कोड',
-                                    hintText: 'ST या R',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onChanged: lookupTrader,
-                                  onSubmitted: (_) => _handleTraderCodeEnter(),
-                                  textInputAction: TextInputAction.next,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: traderNameCtrl,
-                                  readOnly: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'व्यापारी नाव',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // डाग इनपुट फील्ड
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'डाग',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: dagCtrl,
-                            focusNode: dagFocus,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'डाग संख्या',
-                              hintText: 'उदा. 5, 10',
-                              border: OutlineInputBorder(),
+                              onChanged: lookupProduce,
+                              onSubmitted: (_) => _handleProduceCodeEnter(),
+                              textInputAction: TextInputAction.next,
                             ),
-                            onSubmitted: (_) => _handleDagEnter(),
-                            textInputAction: TextInputAction.next,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: produceNameCtrl,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'माल नाव',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: produceLocked,
+                            onChanged: (value) =>
+                                setState(() => produceLocked = value),
+                            activeColor: Colors.green,
+                          ),
+                          const Text('लॉक'),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: traderCodeCtrl,
+                              focusNode: traderCodeFocus,
+                              decoration: const InputDecoration(
+                                labelText: 'व्यापारी कोड',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: lookupTrader,
+                              onSubmitted: (_) => _handleTraderCodeEnter(),
+                              textInputAction: TextInputAction.next,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: traderNameCtrl,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'व्यापारी नाव',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
 
-                  // Quantity & Rate
+                  // Dag + Weight + Bhav in one line + Add (compact)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
                         children: [
-                          const Text(
-                            'मोजमाप',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green),
+                          Expanded(
+                            child: TextField(
+                              controller: dagCtrl,
+                              focusNode: dagFocus,
+                              decoration: const InputDecoration(
+                                labelText: 'डाग',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onSubmitted: (_) => _handleDagEnter(),
+                              textInputAction: TextInputAction.next,
+                            ),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: weightCtrl,
-                                  focusNode: weightFocus,
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    labelText: 'वजन / नग',
-                                    hintText: 'किलो किंवा नग',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onSubmitted: (_) => _handleWeightEnter(),
-                                  textInputAction: TextInputAction.next,
-                                ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: weightCtrl,
+                              focusNode: weightFocus,
+                              decoration: const InputDecoration(
+                                labelText: 'वजन / नग',
+                                border: OutlineInputBorder(),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: rateCtrl,
-                                  focusNode: rateFocus,
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    labelText: 'भाव',
-                                    hintText: 'दर प्रति युनिट',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onSubmitted: (_) => _handleRateEnter(),
-                                  textInputAction: TextInputAction.done,
-                                ),
+                              keyboardType: TextInputType.number,
+                              onSubmitted: (_) => _handleWeightEnter(),
+                              textInputAction: TextInputAction.next,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: rateCtrl,
+                              focusNode: rateFocus,
+                              decoration: const InputDecoration(
+                                labelText: 'भाव',
+                                border: OutlineInputBorder(),
                               ),
-                              const SizedBox(width: 12),
-                              ElevatedButton(
-                                onPressed: _addRow,
-                                child: const Text('जोडा'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20, vertical: 15),
-                                ),
-                              ),
-                            ],
+                              keyboardType: TextInputType.number,
+                              onSubmitted: (_) => _handleRateEnter(),
+                              textInputAction: TextInputAction.done,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: _addRow,
+                            child: const Text('जोडा'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 15),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
 
                   // Expenses Section
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(8), // स्पेस कमी केली
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -867,135 +748,135 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('खर्च विवरण',
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green)),
+                                const Text(
+                                  'खर्च तपशील',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green),
+                                ),
                                 Row(
                                   children: [
                                     Text(expenseExpanded ? 'ON' : 'OFF'),
                                     const SizedBox(width: 8),
                                     Switch(
-                                        value: expenseExpanded,
-                                        onChanged: (v) =>
-                                            setState(() => expenseExpanded = v),
-                                        activeColor: Colors.green),
+                                      value: expenseExpanded,
+                                      onChanged: (value) => setState(
+                                          () => expenseExpanded = value),
+                                      activeColor: Colors.green,
+                                    ),
                                   ],
                                 ),
                               ],
                             ),
                           ),
                           if (expenseExpanded) ...[
-                            const SizedBox(height: 16),
-                            Consumer<ExpenseController>(
-                              builder: (context, controller, child) {
-                                if (controller.expenseItems.isEmpty) {
-                                  return const Center(
-                                      child: Text(
-                                          'कोणतेही खर्च प्रकार उपलब्ध नाहीत'));
-                                }
+                            const SizedBox(height: 12),
+                            if (expenseItems.isEmpty)
+                              const Center(
+                                  child:
+                                      Text('कोणतेही खर्च प्रकार उपलब्ध नाहीत')),
+                            ...expenseItems
+                                .where((exp) => exp.applyOn == 'farmer')
+                                .map((exp) {
+                              final enteredValue =
+                                  double.tryParse(exp.controller.text) ??
+                                      exp.defaultValue;
+                              double calculatedAmount = 0.0;
 
-                                double totalDag =
-                                    rows.fold(0, (s, r) => s + r.dag);
-                                double totalAmt = totalAmount;
-                                WidgetsBinding.instance
-                                    .addPostFrameCallback((_) {
-                                  controller.updateTotal(totalDag, totalAmt);
-                                });
+                              double totalDag =
+                                  rows.fold(0, (s, r) => s + r.dag);
+                              double totalWeight =
+                                  rows.fold(0, (s, r) => s + r.weight);
+                              double totalAmt = totalAmount;
 
-                                return Column(
-                                  children: controller.expenseItems.map((exp) {
-                                    if (exp.applyOn != 'farmer')
-                                      return const SizedBox.shrink();
+                              double unitSize =
+                                  exp.unitSize > 0 ? exp.unitSize : 1.0;
 
-                                    final entered =
-                                        double.tryParse(exp.controller.text) ??
-                                            exp.defaultValue;
-                                    double calculated = 0.0;
+                              switch (exp.calculationType) {
+                                case 'per_unit':
+                                  calculatedAmount =
+                                      (totalWeight / unitSize) * enteredValue;
+                                  break;
+                                case 'per_bag':
+                                  calculatedAmount = totalDag * enteredValue;
+                                  break;
+                                case 'percentage':
+                                  calculatedAmount =
+                                      totalAmt * (enteredValue / 100);
+                                  break;
+                              }
 
-                                    switch (exp.calculationType) {
-                                      case 'per_dag':
-                                        calculated = totalDag * entered;
-                                        break;
-                                      case 'percentage':
-                                        calculated = totalAmt * (entered / 100);
-                                        break;
-                                      case 'fixed':
-                                        calculated = entered;
-                                        break;
-                                    }
-
-                                    return Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 16),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              '${exp.name} (${exp.calculationType == 'per_dag' ? 'प्रति डाग' : exp.calculationType == 'percentage' ? 'टक्केवारी' : 'फिक्स्ड'})',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: TextField(
-                                              controller: exp.controller,
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              decoration: const InputDecoration(
-                                                hintText: 'मूल्य',
-                                                border: OutlineInputBorder(),
-                                              ),
-                                              onChanged: (_) =>
-                                                  controller.updateTotal(
-                                                      totalDag, totalAmt),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            '₹${calculated.toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: Color.fromARGB(
-                                                    255, 46, 125, 50)),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            Consumer<ExpenseController>(
-                              builder: (context, controller, child) {
-                                return Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
                                   children: [
-                                    const Text('एकूण खर्च:',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16)),
-                                    Text(
-                                        '₹${controller.totalExpense.toStringAsFixed(2)}',
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        '${exp.name} (${exp.calculationType == 'per_unit' ? 'प्रति युनिट' : exp.calculationType == 'per_bag' ? 'प्रति डाग' : 'टक्केवारी'})',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextField(
+                                        controller: exp.controller,
+                                        keyboardType: TextInputType.number,
+                                        decoration: const InputDecoration(
+                                          hintText: 'मूल्य',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        onChanged: (_) => setState(() {}),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green[50],
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: Colors.green[200]!),
+                                      ),
+                                      child: Text(
+                                        '₹${calculatedAmount.toStringAsFixed(2)}',
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                            color: Colors.red)),
+                                            color: Color.fromARGB(
+                                                255, 46, 125, 50)),
+                                      ),
+                                    ),
                                   ],
-                                );
-                              },
+                                ),
+                              );
+                            }).toList(),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'एकूण खर्च:',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
+                                ),
+                                Text(
+                                  '₹${totalExpense.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: Colors.red),
+                                ),
+                              ],
                             ),
                           ],
                         ],
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
 
                   // Totals Card

@@ -27,7 +27,7 @@ class DBService {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: (Database db, int version) async {
         await _createAllTables(db);
       },
@@ -62,6 +62,7 @@ class DBService {
         phone TEXT,
         firm_name TEXT,
         area TEXT,
+        area_id,
         opening_balance REAL DEFAULT 0,
         active INTEGER DEFAULT 1,
         created_at TEXT,
@@ -142,14 +143,36 @@ class DBService {
         created_at TEXT
       )
     ''');
+    await db.execute('''
+  CREATE TABLE areas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    active INTEGER DEFAULT 1,
+    created_at TEXT,
+    updated_at TEXT
+  )
+''');
   }
 
   static Future<void> _handleMigrations(
       Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 6) {
       await db.execute(
-          'ALTER TABLE expense_types ADD COLUMN calculation_type TEXT DEFAULT "per_dag"');
+          'ALTER TABLE expense_types ADD COLUMN area_id calculation_type TEXT DEFAULT "per_dag"');
       print("Migration: Added 'calculation_type' column to expense_types");
+    }
+    if (oldVersion < 7) {
+      await db.execute('''
+    CREATE TABLE IF NOT EXISTS areas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    )
+  ''');
+      await db.execute(
+          'ALTER TABLE traders ADD COLUMN area_id INTEGER DEFAULT NULL');
     }
   }
 
