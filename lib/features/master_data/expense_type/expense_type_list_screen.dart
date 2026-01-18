@@ -262,7 +262,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                     children: [
                                       Chip(
                                         label: Text(_getApplyOnDisplay(
-                                            expense['apply_on'])),
+                                            expense['apply_on'] ?? '')),
                                         backgroundColor:
                                             expense['apply_on'] == 'farmer'
                                                 ? Colors.blue[100]
@@ -272,8 +272,8 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                       ),
                                       const SizedBox(width: 8),
                                       Chip(
-                                        label: Text(
-                                            _getModeDisplay(expense['mode'])),
+                                        label: Text(_getModeDisplay(
+                                            expense['mode'] ?? '')),
                                         backgroundColor: Colors.green[100],
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 0),

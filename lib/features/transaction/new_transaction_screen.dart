@@ -899,7 +899,10 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                 double totalDag =
                                     rows.fold(0, (s, r) => s + r.dag);
                                 double totalAmt = totalAmount;
-                                controller.updateTotal(totalDag, totalAmt);
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  controller.updateTotal(totalDag, totalAmt);
+                                });
 
                                 return Column(
                                   children: controller.expenseItems.map((exp) {
