@@ -173,6 +173,7 @@ class DBService {
   ''');
       await db.execute(
           'ALTER TABLE traders ADD COLUMN area_id INTEGER DEFAULT NULL');
+      print("Migration: Added 'areas' table and 'area_id' column to traders");
     }
   }
 
@@ -318,5 +319,48 @@ class DBService {
       await _database!.close();
       _database = null;
     }
+  }
+
+  // शेतकरी थकबाकी (Farmer Dues)
+  static Future<List<Map<String, dynamic>>> getFarmerDues() async {
+    final db = await database;
+    return await db.rawQuery('''
+    SELECT f.id, f.name, f.phone, f.opening_balance,
+           COALESCE(SUM(t.net), 0) as total_paid,
+           (f.opening_balance - COALESCE(SUM(t.net), 0)) as dues
+    FROM farmers f
+    LEFT JOIN transactions t ON f.code = t.farmer_code
+    WHERE f.active = 1
+    GROUP BY f.id
+    HAVING dues > 0
+    ORDER BY f.name ASC
+  ''');
+  }
+
+// खरेदीदार थकबाकी (Trader Recovery)
+  static Future<List<Map<String, dynamic>>> getTraderRecovery(
+      {String? areaId}) async {
+    final db = await database;
+
+    String query = '''
+    SELECT t.id, t.name, t.firm_name, t.phone, t.area, t.opening_balance,
+           COALESCE(SUM(tr.gross), 0) as total_gross,
+           COALESCE(SUM(tr.total_expense), 0) as total_expense,
+           (t.opening_balance + COALESCE(SUM(tr.gross), 0) - COALESCE(SUM(tr.total_expense), 0)) as receivable
+    FROM traders t
+    LEFT JOIN transactions tr ON t.code = tr.trader_code
+    WHERE t.active = 1
+  ''';
+
+    List<Object?> args = [];
+
+    if (areaId != null) {
+      query += ' AND t.area_id = ?';
+      args.add(areaId);
+    }
+
+    query += ' GROUP BY t.id HAVING receivable > 0 ORDER BY t.name ASC';
+
+    return await db.rawQuery(query, args);
   }
 }

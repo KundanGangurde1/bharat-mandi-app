@@ -710,7 +710,7 @@
 import 'package:flutter/material.dart';
 import '../transaction/new_transaction_screen.dart';
 import '../master_data/master_entry_screen.dart'; // नवीन मास्टर एन्ट्री स्क्रीन
-import '../reports/report_screen.dart'; // अहवाल स्क्रीन (पुढे बनवू)
+import '../reports/reports_screen.dart'; // अहवाल स्क्रीन (पुढे बनवू)
 import '../settings/settings_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -775,7 +775,8 @@ class DashboardScreen extends StatelessWidget {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ReportScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const ReportsScreen()),
                 );
               },
             ),
@@ -845,7 +846,7 @@ class DashboardScreen extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const ReportScreen()),
+                        builder: (context) => const ReportsScreen()),
                   ),
                 ),
               ],

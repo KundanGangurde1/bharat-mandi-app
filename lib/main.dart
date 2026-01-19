@@ -86,11 +86,7 @@ import 'features/settings/settings_screen.dart';
 void main() {
   runApp(
     ChangeNotifierProvider<ExpenseController>(
-      create: (context) {
-        final controller = ExpenseController();
-        controller.loadExpenseTypes(); // async कॉल
-        return controller;
-      },
+      create: (context) => ExpenseController()..loadExpenseTypes(), // ऑटो लोड
       child: const MyApp(),
     ),
   );

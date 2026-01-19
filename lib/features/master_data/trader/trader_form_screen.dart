@@ -12,6 +12,7 @@ class TraderFormScreen extends StatefulWidget {
 
 class _TraderFormScreenState extends State<TraderFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  String? selectedAreaId;
 
   final codeCtrl = TextEditingController();
   final nameCtrl = TextEditingController();
@@ -111,6 +112,7 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
         'name': nameCtrl.text.trim(),
         'phone': phoneCtrl.text.trim(),
         'firm_name': firmCtrl.text.trim(),
+        'area_id': selectedAreaId,
         'area': areaCtrl.text.trim(),
         'opening_balance': double.tryParse(balanceCtrl.text) ?? 0,
         'updated_at': now,
@@ -281,7 +283,48 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    FutureBuilder<List<Map<String, dynamic>>>(
+                      future: DBService.database.then((db) => db.query(
+                            'areas',
+                            where: 'active = 1',
+                            orderBy: 'name ASC',
+                          )),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
 
+                        if (snapshot.hasError) {
+                          return Text(
+                              'एरिया लोड होताना त्रुटी: ${snapshot.error}');
+                        }
+
+                        final areas = snapshot.data ?? [];
+
+                        return DropdownButtonFormField<String>(
+                          decoration: const InputDecoration(
+                            labelText: 'एरिया',
+                            hintText: 'एरिया निवडा',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: areas.map((area) {
+                            return DropdownMenuItem<String>(
+                              value: area['id'].toString(),
+                              child: Text(area['name'].toString()),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            // तुझ्या form मध्ये selectedAreaId हे व्हेरिएबल अॅड कर (खाली सांगितलंय)
+                            selectedAreaId = value;
+                          },
+                          validator: (value) =>
+                              value == null ? 'एरिया निवडा' : null,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     // Area
                     TextFormField(
                       controller: areaCtrl,
