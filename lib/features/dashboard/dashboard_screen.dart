@@ -712,6 +712,7 @@ import '../transaction/new_transaction_screen.dart';
 import '../master_data/master_entry_screen.dart'; // नवीन मास्टर एन्ट्री स्क्रीन
 import '../reports/reports_screen.dart'; // अहवाल स्क्रीन (पुढे बनवू)
 import '../settings/settings_screen.dart';
+import '../transaction/pavti_list_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -777,6 +778,18 @@ class DashboardScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const ReportsScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.list),
+              title: const Text('पावती यादी'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const PavtiListScreen()),
                 );
               },
             ),
@@ -847,6 +860,15 @@ class DashboardScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                         builder: (context) => const ReportsScreen()),
+                  ),
+                ),
+                _buildQuickActionCard(
+                  icon: Icons.list,
+                  title: 'पावती यादी',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const PavtiListScreen()),
                   ),
                 ),
               ],

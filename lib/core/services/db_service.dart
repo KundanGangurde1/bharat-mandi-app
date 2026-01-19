@@ -363,4 +363,27 @@ class DBService {
 
     return await db.rawQuery(query, args);
   }
+
+  static Future<void> deletePavti(String parchiId) async {
+    final db = await database;
+
+    // थकबाकी अपडेट (recovery update)
+    final transactions = await db
+        .query('transactions', where: 'parchi_id = ?', whereArgs: [parchiId]);
+    for (var tr in transactions) {
+      final traderCode = tr['trader_code'] as String;
+      final net = tr['net'] as double? ?? 0.0;
+
+      await db.rawUpdate(
+        'UPDATE traders SET opening_balance = opening_balance - ? WHERE code = ?',
+        [net, traderCode],
+      );
+    }
+
+    // transactions आणि transaction_expenses डिलीट कर
+    await db
+        .delete('transactions', where: 'parchi_id = ?', whereArgs: [parchiId]);
+    await db.delete('transaction_expenses',
+        where: 'parchi_id = ?', whereArgs: [parchiId]);
+  }
 }

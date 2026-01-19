@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/db_service.dart';
 import '../../core/expense_controller.dart';
+import '../transaction/pavti_list_screen.dart';
 
 class TransactionRow {
   String traderCode;
@@ -965,14 +966,49 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  flex: 2,
                   child: ElevatedButton.icon(
                     onPressed: _saveTransaction,
                     icon: const Icon(Icons.save),
-                    label: const Text('पावती जतन करा',
+                    label: const Text('पावती सेव करा',
                         style: TextStyle(fontSize: 16)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // पुढील पावती – नवी रीसेट करून तयार कर
+                      _resetForm();
+                    },
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('पुढील'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // मागील पावती – पावती यादी उघड
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => PavtiListScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('मागील'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueGrey,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
