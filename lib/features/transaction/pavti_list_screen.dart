@@ -78,7 +78,7 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
                     final date = pavti['created_at'] as String;
 
                     return ListTile(
-                      title: Text('पावती ID: ${pavti['parchi_id']}'),
+                      title: Text('पावती नंबर: ${pavti['parchi_id']}'),
                       subtitle: Text(
                         'शेतकरी: ${pavti['farmer_name']} | तारीख: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(date))}',
                       ),

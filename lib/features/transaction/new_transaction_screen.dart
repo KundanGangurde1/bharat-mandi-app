@@ -394,53 +394,70 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
     try {
       final db = await DBService.database;
-      final parchiId = DateTime.now().millisecondsSinceEpoch.toString();
 
-      for (final row in rows) {
-        await db.insert('transactions', {
-          'parchi_id': parchiId,
+      int? pavtiId;
+
+      await db.transaction((txn) async {
+        final firstRow = rows.first;
+        pavtiId = await txn.insert('transactions', {
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
           'farmer_name': farmerNameCtrl.text,
-          'trader_code': row.traderCode,
-          'trader_name': row.traderName,
-          'produce_code': row.produceCode,
-          'produce_name': row.produceName,
-          'dag': row.dag,
-          'quantity': row.weight,
-          'rate': row.rate,
-          'gross': row.total,
+          'trader_code': firstRow.traderCode,
+          'trader_name': firstRow.traderName,
+          'produce_code': firstRow.produceCode,
+          'produce_name': firstRow.produceName,
+          'dag': firstRow.dag,
+          'quantity': firstRow.weight,
+          'rate': firstRow.rate,
+          'gross': firstRow.total,
           'total_expense': totalExpense,
           'net': netTotal,
           'created_at': selectedDate.toIso8601String(),
         });
-      }
-      if (expenseExpanded && expenseItems.isNotEmpty) {
-        for (var exp in expenseItems) {
-          final amount =
-              double.tryParse(exp.controller.text) ?? exp.defaultValue;
-          if (amount > 0) {
-            await db.insert('transaction_expenses', {
-              'parchi_id': parchiId,
-              'expense_type_id': exp.id,
-              'amount': amount,
-              'created_at': DateTime.now().toIso8601String(),
-            });
 
-            if (exp.applyOn == 'trader' && rows.isNotEmpty) {
-              final traderCode = rows.first.traderCode;
-              await context
-                  .read<ExpenseController>()
-                  .addToTraderRecovery(traderCode, amount);
+        for (final row in rows.skip(1)) {
+          await txn.insert('transactions', {
+            'parchi_id': pavtiId,
+            'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
+            'farmer_name': farmerNameCtrl.text,
+            'trader_code': row.traderCode,
+            'trader_name': row.traderName,
+            'produce_code': row.produceCode,
+            'produce_name': row.produceName,
+            'dag': row.dag,
+            'quantity': row.weight,
+            'rate': row.rate,
+            'gross': row.total,
+            'total_expense': totalExpense,
+            'net': netTotal,
+            'created_at': selectedDate.toIso8601String(),
+          });
+        }
+
+        if (expenseExpanded && expenseItems.isNotEmpty) {
+          for (var exp in expenseItems) {
+            final amount =
+                double.tryParse(exp.controller.text) ?? exp.defaultValue;
+            if (amount > 0) {
+              await txn.insert('transaction_expenses', {
+                'parchi_id': pavtiId,
+                'expense_type_id': exp.id,
+                'amount': amount,
+                'created_at': DateTime.now().toIso8601String(),
+              });
             }
           }
         }
-      }
-      _showSnackBar("पावती जतन झाली! एकूण एंट्री: ${rows.length}",
-          isError: false);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('पावती सेव झाली! पावती नंबर: $pavtiId')),
+      );
+
       _resetForm();
     } catch (e) {
       print("Save error: $e");
-      _showSnackBar("सेम त्रुटी: $e");
+      _showSnackBar("पावती सेव करण्यात त्रुटी: $e");
     }
   }
 

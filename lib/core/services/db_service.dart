@@ -27,7 +27,7 @@ class DBService {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: (Database db, int version) async {
         await _createAllTables(db);
       },
@@ -101,24 +101,24 @@ class DBService {
 
     // Transactions (पर्ची)
     await db.execute('''
-      CREATE TABLE transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        parchi_id TEXT NOT NULL,
-        farmer_code TEXT,
-        farmer_name TEXT,
-        trader_code TEXT,
-        trader_name TEXT,
-        produce_code TEXT,
-        produce_name TEXT,
-        dag REAL DEFAULT 0,
-        quantity REAL,
-        rate REAL,
-        gross REAL,
-        total_expense REAL DEFAULT 0,
-        net REAL,
-        created_at TEXT
-      )
-    ''');
+  CREATE TABLE transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,  
+    parchi_id INTEGER NOT NULL, 
+    farmer_code TEXT,
+    farmer_name TEXT,
+    trader_code TEXT,
+    trader_name TEXT,
+    produce_code TEXT,
+    produce_name TEXT,
+    dag REAL DEFAULT 0,
+    quantity REAL,
+    rate REAL,
+    gross REAL,
+    total_expense REAL DEFAULT 0,
+    net REAL,
+    created_at TEXT
+  )
+''');
 
     // Transaction Expenses (खर्च लॉग)
     await db.execute('''
@@ -155,10 +155,14 @@ class DBService {
   }
 
   static Future<void> _handleMigrations(
-      Database db, int oldVersion, int newVersion) async {
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
     if (oldVersion < 6) {
       await db.execute(
-          'ALTER TABLE expense_types ADD COLUMN area_id calculation_type TEXT DEFAULT "per_dag"');
+        'ALTER TABLE expense_types ADD COLUMN area_id calculation_type TEXT DEFAULT "per_dag"',
+      );
       print("Migration: Added 'calculation_type' column to expense_types");
     }
     if (oldVersion < 7) {
@@ -171,8 +175,21 @@ class DBService {
       updated_at TEXT
     )
   ''');
+      if (oldVersion < 8) {
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN id INTEGER PRIMARY KEY AUTOINCREMENT',
+        );
+        await db.execute(
+          'ALTER TABLE transactions DROP COLUMN parchi_id',
+        ); // जुना काढून टाक
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN parchi_id INTEGER NOT NULL DEFAULT 0',
+        );
+        print("Migration: Updated transactions table for parchi_id grouping");
+      }
       await db.execute(
-          'ALTER TABLE traders ADD COLUMN area_id INTEGER DEFAULT NULL');
+        'ALTER TABLE traders ADD COLUMN area_id INTEGER DEFAULT NULL',
+      );
       print("Migration: Added 'areas' table and 'area_id' column to traders");
     }
   }
@@ -182,12 +199,21 @@ class DBService {
     final db = await database;
     final upperCode = code.toUpperCase();
 
-    final farmers =
-        await db.query('farmers', where: 'code = ?', whereArgs: [upperCode]);
-    final traders =
-        await db.query('traders', where: 'code = ?', whereArgs: [upperCode]);
-    final produce =
-        await db.query('produce', where: 'code = ?', whereArgs: [upperCode]);
+    final farmers = await db.query(
+      'farmers',
+      where: 'code = ?',
+      whereArgs: [upperCode],
+    );
+    final traders = await db.query(
+      'traders',
+      where: 'code = ?',
+      whereArgs: [upperCode],
+    );
+    final produce = await db.query(
+      'produce',
+      where: 'code = ?',
+      whereArgs: [upperCode],
+    );
 
     return farmers.isEmpty && traders.isEmpty && produce.isEmpty;
   }
@@ -271,7 +297,9 @@ class DBService {
   }
 
   static Future<void> updateExpenseType(
-      int id, Map<String, dynamic> data) async {
+    int id,
+    Map<String, dynamic> data,
+  ) async {
     final db = await database;
     data['updated_at'] = DateTime.now().toIso8601String();
 
@@ -285,7 +313,7 @@ class DBService {
       'expense_types',
       {
         'active': active ? 1 : 0,
-        'updated_at': DateTime.now().toIso8601String()
+        'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -337,9 +365,10 @@ class DBService {
   ''');
   }
 
-// खरेदीदार थकबाकी (Trader Recovery)
-  static Future<List<Map<String, dynamic>>> getTraderRecovery(
-      {String? areaId}) async {
+  // खरेदीदार थकबाकी (Trader Recovery)
+  static Future<List<Map<String, dynamic>>> getTraderRecovery({
+    String? areaId,
+  }) async {
     final db = await database;
 
     String query = '''
@@ -368,8 +397,11 @@ class DBService {
     final db = await database;
 
     // थकबाकी अपडेट (recovery update)
-    final transactions = await db
-        .query('transactions', where: 'parchi_id = ?', whereArgs: [parchiId]);
+    final transactions = await db.query(
+      'transactions',
+      where: 'parchi_id = ?',
+      whereArgs: [parchiId],
+    );
     for (var tr in transactions) {
       final traderCode = tr['trader_code'] as String;
       final net = tr['net'] as double? ?? 0.0;
@@ -381,9 +413,15 @@ class DBService {
     }
 
     // transactions आणि transaction_expenses डिलीट कर
-    await db
-        .delete('transactions', where: 'parchi_id = ?', whereArgs: [parchiId]);
-    await db.delete('transaction_expenses',
-        where: 'parchi_id = ?', whereArgs: [parchiId]);
+    await db.delete(
+      'transactions',
+      where: 'parchi_id = ?',
+      whereArgs: [parchiId],
+    );
+    await db.delete(
+      'transaction_expenses',
+      where: 'parchi_id = ?',
+      whereArgs: [parchiId],
+    );
   }
 }
