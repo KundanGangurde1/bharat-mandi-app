@@ -424,4 +424,16 @@ class DBService {
       whereArgs: [parchiId],
     );
   }
+
+  static Future<int> getNextParchiId() async {
+    final db = await database;
+    // सर्वात मोठा parchi_id शोधणे
+    final result = await db.rawQuery(
+        'SELECT MAX(CAST(parchi_id AS INTEGER)) as max_id FROM transactions');
+
+    int? maxId = result.first['max_id'] as int?;
+
+    // जर पहिलीच पावती असेल तर 1, नाहीतर पुढचा नंबर
+    return (maxId ?? 0) + 1;
+  }
 }

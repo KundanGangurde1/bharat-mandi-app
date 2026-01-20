@@ -393,6 +393,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     }
 
     try {
+      int newBillNo = await DBService.getNextParchiId();
+      print("New Bill Number: $newBillNo"); // चेक करण्यासाठी
+      // final db = await DBService.instance.database;
       final db = await DBService.database;
 
       int? pavtiId;
@@ -400,6 +403,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       await db.transaction((txn) async {
         final firstRow = rows.first;
         pavtiId = await txn.insert('transactions', {
+          'parchi_id': newBillNo,
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
           'farmer_name': farmerNameCtrl.text,
           'trader_code': firstRow.traderCode,
@@ -417,7 +421,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
         for (final row in rows.skip(1)) {
           await txn.insert('transactions', {
-            'parchi_id': pavtiId,
+            'parchi_id': newBillNo,
             'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
             'farmer_name': farmerNameCtrl.text,
             'trader_code': row.traderCode,
@@ -451,7 +455,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('पावती सेव झाली! पावती नंबर: $pavtiId')),
+        SnackBar(
+            content: Text('पावती नं. $newBillNo यशस्वीरित्या सेव्ह झाली!')),
       );
 
       _resetForm();
