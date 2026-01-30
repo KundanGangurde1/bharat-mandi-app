@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import '../../features/firm_setup/firm_service.dart';
 
 class DBService {
   static Database? _database;
@@ -149,6 +150,26 @@ class DBService {
     name TEXT NOT NULL,
     active INTEGER DEFAULT 1,
     created_at TEXT,
+    updated_at TEXT
+  )
+''');
+// Firms (फर्म)
+    await db.execute('''
+  CREATE TABLE IF NOT EXISTS firms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    code TEXT UNIQUE,
+    owner_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL,
+    address TEXT NOT NULL,
+    city TEXT NOT NULL,
+    state TEXT NOT NULL,
+    pincode TEXT NOT NULL,
+    gst_number TEXT,
+    pan_number TEXT,
+    active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
     updated_at TEXT
   )
 ''');
