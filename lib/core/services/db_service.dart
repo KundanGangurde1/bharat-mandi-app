@@ -4,6 +4,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../../features/firm_setup/firm_service.dart';
+import 'package:uuid/uuid.dart';
+import 'powersync_service.dart';
 
 class DBService {
   static Database? _database;

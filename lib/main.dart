@@ -76,14 +76,32 @@
 //     );
 //   }
 // }
+import 'dart:io';
+
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+// import 'package:sqflite/sqflite.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/expense_controller.dart';
 import 'features/auth/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/services/powersync_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ REQUIRED FOR WINDOWS / DESKTOP
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+  await Supabase.initialize(
+      url: 'https://tbwmkazufzwyucmyoddj.supabase.co',
+      anonKey: 'sb_publishable_CYT-rFyMWzqy1nivhp1glQ_SxXVRzh8');
+  await initPowerSync();
   runApp(
     ChangeNotifierProvider<ExpenseController>(
       create: (context) => ExpenseController()..loadExpenseTypes(), // ऑटो लोड
