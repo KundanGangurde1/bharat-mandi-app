@@ -11,16 +11,23 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # ✅ UI & Core
   cupertino_icons: ^1.0.2
+  provider: ^6.1.2
+
+  # ✅ POWERSYNC (Offline-First Sync) - Latest stable
+  powersync: ^1.4.0
+
+  # ✅ Utilities
+  path_provider: ^2.1.5
+  path: ^1.9.0
+  intl: ^0.19.0
+  uuid: ^4.2.1
+  connectivity_plus: ^5.0.0
+
+  # ✅ Keep SQLite for compatibility (PowerSync uses it internally)
   sqflite: ^2.3.3+1
   sqflite_common_ffi: ^2.3.3
-  path_provider: ^2.1.5
-  provider: ^6.1.2
-  path: ^1.9.0
-  intl: ^0.19.0  # जर date साठी वापरत असशील
-  supabase_flutter: ^2.3.4
-  powersync: ^1.6.2
-  uuid: ^4.2.1
 
 dev_dependencies:
   flutter_test:
