@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../core/services/db_service.dart';
+import '../core/services/powersync_service.dart';
 
 class ExpenseItem {
-  final int id;
+  final String id;
   final String name;
   final String calculationType;
   final String applyOn;
@@ -24,10 +24,14 @@ class ExpenseController extends ChangeNotifier {
 
   Future<void> loadExpenseTypes() async {
     try {
-      final data = await DBService.getExpenseTypes(activeOnly: true);
+      // PowerSync: Load active expense types
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM expense_types WHERE active = 1 ORDER BY name ASC',
+      );
+
       expenseItems = data
           .map((row) => ExpenseItem(
-                id: row['id'] as int,
+                id: row['id'] as String,
                 name: row['name'] as String,
                 calculationType:
                     row['calculation_type'] as String? ?? 'per_dag',
@@ -43,8 +47,10 @@ class ExpenseController extends ChangeNotifier {
 
       updateTotal();
       notifyListeners();
+
+      print('✅ Loaded ${expenseItems.length} expense types');
     } catch (e) {
-      print("Expense load error: $e");
+      print("❌ Expense load error: $e");
     }
   }
 
@@ -78,10 +84,16 @@ class ExpenseController extends ChangeNotifier {
   }
 
   Future<void> addToTraderRecovery(String traderCode, double amount) async {
-    final db = await DBService.database;
-    await db.rawUpdate(
-      'UPDATE traders SET opening_balance = opening_balance + ? WHERE code = ?',
-      [amount, traderCode],
-    );
+    try {
+      // PowerSync: Update trader opening balance
+      await powerSyncDB.execute(
+        'UPDATE traders SET opening_balance = opening_balance + ? WHERE code = ?',
+        [amount, traderCode],
+      );
+
+      print('✅ Updated trader recovery for $traderCode: +$amount');
+    } catch (e) {
+      print("❌ Error updating trader recovery: $e");
+    }
   }
 }

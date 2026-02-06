@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/db_service.dart';
+import '../../../core/services/powersync_service.dart';
 
 class ExpenseTypeFormScreen extends StatefulWidget {
-  final int? expenseId;
+  final String? expenseId;
 
   const ExpenseTypeFormScreen({super.key, this.expenseId});
 
@@ -40,11 +40,10 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
-      final data = await db.query(
-        'expense_types',
-        where: 'id = ?',
-        whereArgs: [widget.expenseId],
+      // PowerSync: Load expense type data
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM expense_types WHERE id = ?',
+        [widget.expenseId],
       );
 
       if (data.isNotEmpty) {
@@ -52,7 +51,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
 
         nameCtrl.text = expenseData!['name']?.toString() ?? '';
         applyOn = expenseData!['apply_on']?.toString() ?? 'farmer';
-        calculationType = calculationType =
+        calculationType =
             expenseData!['calculation_type']?.toString() ?? 'per_dag';
         defaultValueCtrl.text =
             expenseData!['default_value']?.toString() ?? '0';
@@ -60,7 +59,12 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
         showInReport = expenseData!['show_in_report'] == 1;
       }
     } catch (e) {
-      print("Error loading expense type: $e");
+      print("❌ Error loading expense type: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -94,25 +98,20 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
       final expense = {
         'name': name,
         'apply_on': applyOn,
-        'calculation_type': calculationType, // येथे calculation_type वापरलं
+        'calculation_type': calculationType,
         'default_value': defaultValue,
         'active': active ? 1 : 0,
         'show_in_report': showInReport ? 1 : 0,
         'updated_at': now,
       };
 
-      final db = await DBService.database;
-
       if (isEditMode) {
-        await db.update(
-          'expense_types',
-          expense,
-          where: 'id = ?',
-          whereArgs: [widget.expenseId],
-        );
+        // PowerSync: Update expense type
+        await updateRecord('expense_types', widget.expenseId!, expense);
       } else {
         expense['created_at'] = now;
-        await db.insert('expense_types', expense);
+        // PowerSync: Insert expense type
+        await insertRecord('expense_types', expense);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,7 +125,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
 
       Navigator.pop(context, true);
     } catch (e) {
-      print("Error saving expense type: $e");
+      print("❌ Error saving expense type: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: ${e.toString()}'),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'trader_form_screen.dart';
-import '../../../core/services/db_service.dart';
+import '../../../core/services/powersync_service.dart';
 
 class TraderListScreen extends StatefulWidget {
   const TraderListScreen({super.key});
@@ -24,19 +24,25 @@ class _TraderListScreenState extends State<TraderListScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
-      final data = await db.query(
-        'traders',
-        orderBy: 'name ASC',
+      // PowerSync: Get all traders ordered by name
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM traders ORDER BY name ASC',
       );
 
       setState(() {
         traders = data;
         isLoading = false;
       });
+
+      print('✅ Loaded ${traders.length} traders');
     } catch (e) {
-      print("Error loading traders: $e");
+      print("❌ Error loading traders: $e");
       setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     }
   }
 
@@ -218,17 +224,24 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                           isActive ? Colors.green : Colors.grey,
                                     ),
                                     onPressed: () async {
+                                      // PowerSync: Toggle active status
                                       try {
-                                        final db = await DBService.database;
-                                        await db.update(
+                                        await updateRecord(
                                           'traders',
+                                          trader['id'] as String,
                                           {'active': isActive ? 0 : 1},
-                                          where: 'id = ?',
-                                          whereArgs: [trader['id']],
                                         );
                                         await _loadTraders();
                                       } catch (e) {
-                                        print("Error toggling trader: $e");
+                                        print("❌ Error toggling trader: $e");
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text('त्रुटी: $e'),
+                                            ),
+                                          );
+                                        }
                                       }
                                     },
                                     tooltip: isActive
@@ -239,13 +252,12 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                     icon: const Icon(Icons.edit,
                                         color: Colors.blue),
                                     onPressed: () async {
-                                      // Edit trader
                                       final result = await Navigator.push(
                                         context,
                                         MaterialPageRoute(
                                           builder: (context) =>
                                               TraderFormScreen(
-                                            traderId: trader['id'],
+                                            traderId: trader['id'] as String,
                                           ),
                                         ),
                                       );
@@ -263,7 +275,7 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => TraderFormScreen(
-                                      traderId: trader['id'],
+                                      traderId: trader['id'] as String,
                                     ),
                                   ),
                                 );

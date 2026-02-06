@@ -1,0 +1,369 @@
+// ✅ DB_SERVICE BRIDGE - Redirects all calls to PowerSync
+import '../../core/services/powersync_service.dart';
+
+class DBService {
+  // ✅ This is now a bridge to PowerSync
+  // All database operations go through PowerSync
+
+  // ============ VALIDATION METHODS ============
+  static Future<bool> isCodeUnique(String code) async {
+    try {
+      final upperCode = code.toUpperCase();
+
+      final farmers = await powerSyncDB.getAll(
+        'SELECT COUNT(*) as count FROM farmers WHERE code = ?',
+        [upperCode],
+      );
+      final traders = await powerSyncDB.getAll(
+        'SELECT COUNT(*) as count FROM traders WHERE code = ?',
+        [upperCode],
+      );
+      final produce = await powerSyncDB.getAll(
+        'SELECT COUNT(*) as count FROM produce WHERE code = ?',
+        [upperCode],
+      );
+
+      final farmerCount = farmers.isNotEmpty ? (farmers[0]['count'] as int) : 0;
+      final traderCount = traders.isNotEmpty ? (traders[0]['count'] as int) : 0;
+      final produceCount =
+          produce.isNotEmpty ? (produce[0]['count'] as int) : 0;
+
+      return farmerCount == 0 && traderCount == 0 && produceCount == 0;
+    } catch (e) {
+      print('❌ isCodeUnique error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> isCodeUsedInTransaction(String code, String table) async {
+    try {
+      String column = '';
+      switch (table) {
+        case 'farmers':
+          column = 'farmer_code';
+          break;
+        case 'traders':
+          column = 'trader_code';
+          break;
+        case 'produce':
+          column = 'produce_code';
+          break;
+        default:
+          return false;
+      }
+
+      final result = await powerSyncDB.getAll(
+        'SELECT COUNT(*) as count FROM transactions WHERE $column = ? LIMIT 1',
+        [code.toUpperCase()],
+      );
+
+      return result.isNotEmpty && (result[0]['count'] as int) > 0;
+    } catch (e) {
+      print('❌ isCodeUsedInTransaction error: $e');
+      return false;
+    }
+  }
+
+  // ============ EXPENSE TYPE METHODS ============
+  static Future<List<Map<String, dynamic>>> getExpenseTypes({
+    String? applyOn,
+    bool activeOnly = true,
+  }) async {
+    try {
+      String where = '';
+      List<Object?> whereArgs = [];
+
+      if (applyOn != null) {
+        where = 'apply_on = ?';
+        whereArgs.add(applyOn);
+      }
+
+      if (activeOnly) {
+        if (where.isNotEmpty) where += ' AND ';
+        where += 'active = 1';
+      }
+
+      String query = 'SELECT * FROM expense_types';
+      if (where.isNotEmpty) {
+        query += ' WHERE $where';
+      }
+      query += ' ORDER BY apply_on, name ASC';
+
+      return await powerSyncDB.getAll(query, whereArgs);
+    } catch (e) {
+      print('❌ getExpenseTypes error: $e');
+      return [];
+    }
+  }
+
+  static Future<int> addExpenseType({
+    required String name,
+    required String applyOn,
+    required String calculation_type,
+    required double default_value,
+    bool active = true,
+    bool show_in_report = true,
+  }) async {
+    try {
+      final now = DateTime.now().toIso8601String();
+
+      await powerSyncDB.execute(
+        '''INSERT INTO expense_types (name, apply_on, calculation_type, default_value, active, show_in_report, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)''',
+        [
+          name,
+          applyOn,
+          calculation_type,
+          default_value,
+          active ? 1 : 0,
+          show_in_report ? 1 : 0,
+          now,
+        ],
+      );
+      print('✅ Expense type added: $name');
+      return 1;
+    } catch (e) {
+      print('❌ addExpenseType error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> updateExpenseType(
+    int id,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      data['updated_at'] = DateTime.now().toIso8601String();
+
+      final updates = data.keys.map((k) => '$k = ?').join(', ');
+      final values = [...data.values, id];
+
+      await powerSyncDB.execute(
+        'UPDATE expense_types SET $updates WHERE id = ?',
+        values,
+      );
+      print('✅ Expense type updated');
+    } catch (e) {
+      print('❌ updateExpenseType error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> toggleExpenseType(int id, bool active) async {
+    try {
+      await powerSyncDB.execute(
+        'UPDATE expense_types SET active = ?, updated_at = ? WHERE id = ?',
+        [active ? 1 : 0, DateTime.now().toIso8601String(), id],
+      );
+      print('✅ Expense type toggled');
+    } catch (e) {
+      print('❌ toggleExpenseType error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> deleteExpenseType(int id) async {
+    try {
+      await powerSyncDB.execute(
+        'DELETE FROM expense_types WHERE id = ?',
+        [id],
+      );
+      print('✅ Expense type deleted');
+    } catch (e) {
+      print('❌ deleteExpenseType error: $e');
+      rethrow;
+    }
+  }
+
+  // ============ AREA METHODS ============
+  static Future<List<Map<String, dynamic>>> getAreas(
+      {bool activeOnly = true}) async {
+    try {
+      String query = 'SELECT * FROM areas';
+      if (activeOnly) {
+        query += ' WHERE active = 1';
+      }
+      query += ' ORDER BY name ASC';
+
+      return await powerSyncDB.getAll(query);
+    } catch (e) {
+      print('❌ getAreas error: $e');
+      return [];
+    }
+  }
+
+  static Future<int> addArea(String name) async {
+    try {
+      final now = DateTime.now().toIso8601String();
+
+      await powerSyncDB.execute(
+        'INSERT INTO areas (name, active, created_at, updated_at) VALUES (?, ?, ?, ?)',
+        [name, 1, now, now],
+      );
+      print('✅ Area added: $name');
+      return 1;
+    } catch (e) {
+      print('❌ addArea error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> updateArea(int id, String name) async {
+    try {
+      await powerSyncDB.execute(
+        'UPDATE areas SET name = ?, updated_at = ? WHERE id = ?',
+        [name, DateTime.now().toIso8601String(), id],
+      );
+      print('✅ Area updated');
+    } catch (e) {
+      print('❌ updateArea error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> deleteArea(int id) async {
+    try {
+      await powerSyncDB.execute(
+        'DELETE FROM areas WHERE id = ?',
+        [id],
+      );
+      print('✅ Area deleted');
+    } catch (e) {
+      print('❌ deleteArea error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> toggleArea(int id, bool active) async {
+    try {
+      await powerSyncDB.execute(
+        'UPDATE areas SET active = ?, updated_at = ? WHERE id = ?',
+        [active ? 1 : 0, DateTime.now().toIso8601String(), id],
+      );
+      print('✅ Area toggled');
+    } catch (e) {
+      print('❌ toggleArea error: $e');
+      rethrow;
+    }
+  }
+
+  // ============ FARMER METHODS ============
+  static Future<List<Map<String, dynamic>>> getFarmers(
+      {bool activeOnly = true}) async {
+    try {
+      String query = 'SELECT * FROM farmers';
+      if (activeOnly) {
+        query += ' WHERE active = 1';
+      }
+      query += ' ORDER BY name ASC';
+
+      return await powerSyncDB.getAll(query);
+    } catch (e) {
+      print('❌ getFarmers error: $e');
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getFarmerByCode(String code) async {
+    try {
+      final results = await powerSyncDB.getAll(
+        'SELECT * FROM farmers WHERE code = ? LIMIT 1',
+        [code.toUpperCase()],
+      );
+      return results.isNotEmpty ? results[0] : null;
+    } catch (e) {
+      print('❌ getFarmerByCode error: $e');
+      return null;
+    }
+  }
+
+  // ============ TRADER METHODS ============
+  static Future<List<Map<String, dynamic>>> getTraders(
+      {bool activeOnly = true}) async {
+    try {
+      String query = 'SELECT * FROM traders';
+      if (activeOnly) {
+        query += ' WHERE active = 1';
+      }
+      query += ' ORDER BY name ASC';
+
+      return await powerSyncDB.getAll(query);
+    } catch (e) {
+      print('❌ getTraders error: $e');
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getTraderByCode(String code) async {
+    try {
+      final results = await powerSyncDB.getAll(
+        'SELECT * FROM traders WHERE code = ? LIMIT 1',
+        [code.toUpperCase()],
+      );
+      return results.isNotEmpty ? results[0] : null;
+    } catch (e) {
+      print('❌ getTraderByCode error: $e');
+      return null;
+    }
+  }
+
+  // ============ PRODUCE METHODS ============
+  static Future<List<Map<String, dynamic>>> getProduce(
+      {bool activeOnly = true}) async {
+    try {
+      String query = 'SELECT * FROM produce';
+      if (activeOnly) {
+        query += ' WHERE active = 1';
+      }
+      query += ' ORDER BY name ASC';
+
+      return await powerSyncDB.getAll(query);
+    } catch (e) {
+      print('❌ getProduce error: $e');
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getProduceByCode(String code) async {
+    try {
+      final results = await powerSyncDB.getAll(
+        'SELECT * FROM produce WHERE code = ? LIMIT 1',
+        [code.toUpperCase()],
+      );
+      return results.isNotEmpty ? results[0] : null;
+    } catch (e) {
+      print('❌ getProduceByCode error: $e');
+      return null;
+    }
+  }
+
+  // ============ TRANSACTION METHODS ============
+  static Future<List<Map<String, dynamic>>> getTransactions() async {
+    try {
+      return await powerSyncDB.getAll(
+        'SELECT * FROM transactions ORDER BY created_at DESC',
+      );
+    } catch (e) {
+      print('❌ getTransactions error: $e');
+      return [];
+    }
+  }
+
+  static Future<int> addTransaction(Map<String, dynamic> data) async {
+    try {
+      final columns = data.keys.join(', ');
+      final placeholders = List.filled(data.length, '?').join(', ');
+      final values = data.values.toList();
+
+      await powerSyncDB.execute(
+        'INSERT INTO transactions ($columns) VALUES ($placeholders)',
+        values,
+      );
+      print('✅ Transaction added');
+      return 1;
+    } catch (e) {
+      print('❌ addTransaction error: $e');
+      rethrow;
+    }
+  }
+}

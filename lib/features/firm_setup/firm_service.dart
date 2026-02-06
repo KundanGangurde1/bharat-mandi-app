@@ -1,122 +1,157 @@
-import 'package:sqflite/sqflite.dart';
-import '../../core/services/db_service.dart';
+import '../../core/services/powersync_service.dart';
 import 'firm_model.dart';
 
 class FirmService {
   static const String tableName = 'firms';
 
-  // Database table तयार करा
-  static Future<void> createTable(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS $tableName (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        code TEXT UNIQUE,
-        owner_name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        email TEXT NOT NULL,
-        address TEXT NOT NULL,
-        city TEXT NOT NULL,
-        state TEXT NOT NULL,
-        pincode TEXT NOT NULL,
-        gst_number TEXT,
-        pan_number TEXT,
-        active INTEGER DEFAULT 1,
-        created_at TEXT NOT NULL,
-        updated_at TEXT
-      )
-    ''');
-  }
-
   // नवीन firm add करा
-  static Future<int> addFirm(Firm firm) async {
-    final db = await DBService.database;
-    return await db.insert(
-      tableName,
-      firm.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+  static Future<String> addFirm(Firm firm) async {
+    try {
+      // PowerSync: insertRecord returns the ID as String
+      final result = await insertRecord(tableName, {
+        'name': firm.name,
+        'code': firm.code,
+        'owner_name': firm.owner_name,
+        'phone': firm.phone,
+        'email': firm.email,
+        'address': firm.address,
+        'city': firm.city,
+        'state': firm.state,
+        'pincode': firm.pincode,
+        'gst_number': firm.gst_number,
+        'pan_number': firm.pan_number,
+        'active': firm.active ? 1 : 0,
+        'created_at': firm.created_at,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      print('✅ Firm added with ID: $result');
+      return result;
+    } catch (e) {
+      print("❌ Error adding firm: $e");
+      rethrow;
+    }
   }
 
   // सर्व firms मिळवा
   static Future<List<Firm>> getAllFirms() async {
-    final db = await DBService.database;
-    final maps = await db.query(tableName, orderBy: 'created_at DESC');
-    return List.generate(maps.length, (i) => Firm.fromMap(maps[i]));
+    try {
+      final maps = await powerSyncDB.getAll(
+        'SELECT * FROM $tableName ORDER BY created_at DESC',
+      );
+
+      return maps.map((map) => Firm.fromMap(map)).toList();
+    } catch (e) {
+      print("❌ Error getting all firms: $e");
+      return [];
+    }
   }
 
   // एक specific firm मिळवा
-  static Future<Firm?> getFirmById(int id) async {
-    final db = await DBService.database;
-    final maps = await db.query(
-      tableName,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  static Future<Firm?> getFirmById(String id) async {
+    try {
+      final maps = await powerSyncDB.getAll(
+        'SELECT * FROM $tableName WHERE id = ?',
+        [id],
+      );
 
-    if (maps.isNotEmpty) {
-      return Firm.fromMap(maps.first);
+      if (maps.isNotEmpty) {
+        return Firm.fromMap(maps.first);
+      }
+      return null;
+    } catch (e) {
+      print("❌ Error getting firm by ID: $e");
+      return null;
     }
-    return null;
   }
 
   // Active firm मिळवा (सर्वात नवीन)
   static Future<Firm?> getActiveFirm() async {
-    final db = await DBService.database;
-    final maps = await db.query(
-      tableName,
-      where: 'active = ?',
-      whereArgs: [1],
-      orderBy: 'created_at DESC',
-      limit: 1,
-    );
+    try {
+      final maps = await powerSyncDB.getAll(
+        'SELECT * FROM $tableName WHERE active = 1 ORDER BY created_at DESC LIMIT 1',
+      );
 
-    if (maps.isNotEmpty) {
-      return Firm.fromMap(maps.first);
+      if (maps.isNotEmpty) {
+        return Firm.fromMap(maps.first);
+      }
+      return null;
+    } catch (e) {
+      print("❌ Error getting active firm: $e");
+      return null;
     }
-    return null;
   }
 
   // Firm update करा
-  static Future<int> updateFirm(Firm firm) async {
-    final db = await DBService.database;
-    final updatedFirm = firm.copyWith(
-      updated_at: DateTime.now().toIso8601String(),
-    );
-    return await db.update(
-      tableName,
-      updatedFirm.toMap(),
-      where: 'id = ?',
-      whereArgs: [firm.id],
-    );
+  static Future<void> updateFirm(Firm firm) async {
+    try {
+      if (firm.id == null) {
+        throw Exception('Firm ID cannot be null for update');
+      }
+
+      await updateRecord(tableName, firm.id.toString(), {
+        'name': firm.name,
+        'code': firm.code,
+        'owner_name': firm.owner_name,
+        'phone': firm.phone,
+        'email': firm.email,
+        'address': firm.address,
+        'city': firm.city,
+        'state': firm.state,
+        'pincode': firm.pincode,
+        'gst_number': firm.gst_number,
+        'pan_number': firm.pan_number,
+        'active': firm.active ? 1 : 0,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      print('✅ Firm updated: ${firm.id}');
+    } catch (e) {
+      print("❌ Error updating firm: $e");
+      rethrow;
+    }
   }
 
   // Firm delete करा
-  static Future<int> deleteFirm(int id) async {
-    final db = await DBService.database;
-    return await db.delete(
-      tableName,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  static Future<void> deleteFirm(String id) async {
+    try {
+      await deleteRecord(tableName, id);
+      print('✅ Firm deleted: $id');
+    } catch (e) {
+      print("❌ Error deleting firm: $e");
+      rethrow;
+    }
   }
 
   // Firm को inactive करा (soft delete)
-  static Future<int> deactivateFirm(int id) async {
-    final db = await DBService.database;
-    return await db.update(
-      tableName,
-      {'active': 0, 'updated_at': DateTime.now().toIso8601String()},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  static Future<void> deactivateFirm(String id) async {
+    try {
+      await updateRecord(tableName, id, {
+        'active': 0,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      print('✅ Firm deactivated: $id');
+    } catch (e) {
+      print("❌ Error deactivating firm: $e");
+      rethrow;
+    }
   }
 
   // Firm count मिळवा
   static Future<int> getFirmCount() async {
-    final db = await DBService.database;
-    final result =
-        await db.rawQuery('SELECT COUNT(*) as count FROM $tableName');
-    return Sqflite.firstIntValue(result) ?? 0;
+    try {
+      final result = await powerSyncDB.getAll(
+        'SELECT COUNT(*) as count FROM $tableName',
+      );
+
+      if (result.isNotEmpty) {
+        return (result.first['count'] as int?) ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      print("❌ Error getting firm count: $e");
+      return 0;
+    }
   }
 }

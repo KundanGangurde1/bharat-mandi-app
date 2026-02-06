@@ -40,7 +40,8 @@ class _FirmListScreenState extends State<FirmListScreen> {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                await FirmService.deleteFirm(firm.id!);
+                // Convert id to String for PowerSync
+                await FirmService.deleteFirm(firm.id?.toString() ?? '');
                 _refreshList();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(

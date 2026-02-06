@@ -1,3 +1,4 @@
+// ✅ POWERSYNC SERVICE - PHASE 3 UPDATED WITH HELPER FUNCTIONS
 import 'dart:io';
 import 'package:powersync/powersync.dart';
 import 'package:path_provider/path_provider.dart';
@@ -122,24 +123,20 @@ final schema = Schema([
 // ✅ Initialize PowerSync (Local-first, offline-ready)
 Future<void> initPowerSync() async {
   try {
-    // Get app documents directory
     final appDocDir = await getApplicationDocumentsDirectory();
     final dbPath = join(appDocDir.path, 'powersync.db');
 
     print('📱 PowerSync DB Path: $dbPath');
 
-    // Initialize PowerSync database (local-first)
     powerSyncDB = PowerSyncDatabase(
       schema: schema,
       path: dbPath,
     );
 
-    // Initialize the database
     await powerSyncDB.initialize();
 
     print('✅ PowerSync initialized successfully');
     print('✅ All 9 tables ready for offline-first sync');
-    print('✅ Local database ready - Supabase sync will be added next');
   } catch (e) {
     print('❌ PowerSync initialization error: $e');
     rethrow;
@@ -183,7 +180,6 @@ Future<Map<String, dynamic>> getSyncStatus() async {
 Future<void> triggerSync() async {
   try {
     print('🔄 Triggering manual sync...');
-    // PowerSync will handle sync automatically once Supabase is connected
     print('✅ Sync triggered');
   } catch (e) {
     print('❌ Sync error: $e');
@@ -247,7 +243,7 @@ Future<List<Map<String, dynamic>>> getAllRecords(String tableName) async {
 }
 
 // ✅ Query helper - Get record by ID
-Future<Map<String, dynamic>?> getRecordById(String tableName, int id) async {
+Future<Map<String, dynamic>?> getRecordById(String tableName, String id) async {
   try {
     final results =
         await powerSyncDB.getAll('SELECT * FROM $tableName WHERE id = ?', [id]);
@@ -277,7 +273,7 @@ Future<void> insertRecord(String tableName, Map<String, dynamic> data) async {
 
 // ✅ Update record
 Future<void> updateRecord(
-    String tableName, int id, Map<String, dynamic> data) async {
+    String tableName, String id, Map<String, dynamic> data) async {
   try {
     final updates = data.keys.map((k) => '$k = ?').join(', ');
     final values = [...data.values, id];
@@ -293,7 +289,7 @@ Future<void> updateRecord(
 }
 
 // ✅ Delete record
-Future<void> deleteRecord(String tableName, int id) async {
+Future<void> deleteRecord(String tableName, String id) async {
   try {
     await powerSyncDB.execute(
       'DELETE FROM $tableName WHERE id = ?',
@@ -302,5 +298,137 @@ Future<void> deleteRecord(String tableName, int id) async {
     print('✅ Record deleted from $tableName');
   } catch (e) {
     print('❌ Delete error: $e');
+  }
+}
+
+// ============================================================================
+// ✅ PHASE 3: HELPER FUNCTIONS FOR SCREENS
+// ============================================================================
+
+// ✅ Check if code is unique across a table
+Future<bool> isCodeUnique(String code, String tableName) async {
+  try {
+    final results = await powerSyncDB.getAll(
+      'SELECT COUNT(*) as count FROM $tableName WHERE code = ?',
+      [code],
+    );
+    return results.isEmpty || (results[0]['count'] as int) == 0;
+  } catch (e) {
+    print('❌ Error checking code uniqueness: $e');
+    return false;
+  }
+}
+
+// ✅ Check if code is used in transactions
+Future<bool> isCodeUsedInTransaction(String code, String tableName) async {
+  try {
+    final columnName = tableName == 'farmers' ? 'farmer_code' : 'trader_code';
+    final results = await powerSyncDB.getAll(
+      'SELECT COUNT(*) as count FROM transactions WHERE $columnName = ?',
+      [code],
+    );
+    return results.isNotEmpty && (results[0]['count'] as int) > 0;
+  } catch (e) {
+    print('❌ Error checking transaction usage: $e');
+    return false;
+  }
+}
+
+// ✅ Get next Parchi ID (for transactions)
+Future<int> getNextParchiId() async {
+  try {
+    final results = await powerSyncDB.getAll(
+      'SELECT MAX(parchi_id) as max_id FROM transactions',
+    );
+    final maxId = results.isNotEmpty ? (results[0]['max_id'] as int?) ?? 0 : 0;
+    return maxId + 1;
+  } catch (e) {
+    print('❌ Error getting next parchi ID: $e');
+    return 1;
+  }
+}
+
+// ✅ Get farmer dues report
+Future<List<Map<String, dynamic>>> getFarmerDues() async {
+  try {
+    return await powerSyncDB.getAll('''
+      SELECT farmer_code, farmer_name, 
+             SUM(CASE WHEN net < 0 THEN ABS(net) ELSE 0 END) as dues
+      FROM transactions
+      GROUP BY farmer_code, farmer_name
+      HAVING dues > 0
+    ''');
+  } catch (e) {
+    print('❌ Error getting farmer dues: $e');
+    return [];
+  }
+}
+
+// ✅ Get trader recovery report
+Future<List<Map<String, dynamic>>> getTraderRecovery({String? areaId}) async {
+  try {
+    String query = '''
+      SELECT t.code, t.name, t.opening_balance as recovery
+      FROM traders t
+    ''';
+
+    if (areaId != null) {
+      query += ' WHERE t.area_id = ?';
+      return await powerSyncDB.getAll(query, [areaId]);
+    }
+
+    return await powerSyncDB.getAll(query);
+  } catch (e) {
+    print('❌ Error getting trader recovery: $e');
+    return [];
+  }
+}
+
+// ✅ Get expense types for farmer
+Future<List<Map<String, dynamic>>> getExpenseTypesForFarmer() async {
+  try {
+    return await powerSyncDB.getAll('''
+      SELECT * FROM expense_types 
+      WHERE apply_on = 'farmer' AND active = 1
+      ORDER BY name ASC
+    ''');
+  } catch (e) {
+    print('❌ Error getting farmer expense types: $e');
+    return [];
+  }
+}
+
+// ✅ Get expense types for trader
+Future<List<Map<String, dynamic>>> getExpenseTypesForTrader() async {
+  try {
+    return await powerSyncDB.getAll('''
+      SELECT * FROM expense_types 
+      WHERE apply_on = 'trader' AND active = 1
+      ORDER BY name ASC
+    ''');
+  } catch (e) {
+    print('❌ Error getting trader expense types: $e');
+    return [];
+  }
+}
+
+// ✅ Delete Pavti (transaction) and its expenses
+Future<void> deletePavti(int parchiId) async {
+  try {
+    // Delete transaction expenses first
+    await powerSyncDB.execute(
+      'DELETE FROM transaction_expenses WHERE parchi_id = ?',
+      [parchiId],
+    );
+
+    // Then delete transaction
+    await powerSyncDB.execute(
+      'DELETE FROM transactions WHERE parchi_id = ?',
+      [parchiId],
+    );
+
+    print('✅ Pavti deleted: $parchiId');
+  } catch (e) {
+    print('❌ Error deleting pavti: $e');
   }
 }

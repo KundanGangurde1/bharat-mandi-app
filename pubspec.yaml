@@ -15,11 +15,8 @@ dependencies:
   cupertino_icons: ^1.0.2
   provider: ^6.1.2
 
-  # ✅ POWERSYNC (Offline-First Sync)
+  # ✅ POWERSYNC (Offline-First Sync Database)
   powersync: ^1.4.0
-
-  # ✅ HTTP for Supabase connection
-  http: ^1.1.0
 
   # ✅ Utilities
   path_provider: ^2.1.5

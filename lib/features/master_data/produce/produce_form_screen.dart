@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/db_service.dart';
+import '../../../core/services/powersync_service.dart';
 
 class ProduceFormScreen extends StatefulWidget {
-  final int? produceId;
+  final String? produceId;
 
   const ProduceFormScreen({super.key, this.produceId});
 
@@ -37,11 +37,10 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
-      final data = await db.query(
-        'produce',
-        where: 'id = ?',
-        whereArgs: [widget.produceId],
+      // PowerSync: Load produce data
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM produce WHERE id = ?',
+        [widget.produceId],
       );
 
       if (data.isNotEmpty) {
@@ -53,15 +52,26 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
         categoryCtrl.text = produceData!['category']?.toString() ?? '';
 
         // Check if code is used in transactions
-        final isUsed = await DBService.isCodeUsedInTransaction(
-            produceData!['code']?.toString() ?? '', 'produce');
+        final transactions = await powerSyncDB.getAll(
+          'SELECT COUNT(*) as count FROM transactions WHERE produce_code = ?',
+          [produceData!['code']?.toString() ?? ''],
+        );
 
-        setState(() {
-          isCodeUsed = isUsed;
-        });
+        final count = (transactions.isNotEmpty
+                ? (transactions.first['count'] as int?)
+                : 0) ??
+            0;
+        isCodeUsed = count > 0;
+
+        setState(() {});
       }
     } catch (e) {
-      print("Error loading produce: $e");
+      print("❌ Error loading produce: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -72,22 +82,34 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
 
     final code = codeCtrl.text.trim().toUpperCase();
 
+    // Check if code is unique (if new or code changed)
     if (!isEditMode || code != produceData?['code']) {
-      final isUnique = await DBService.isCodeUnique(code);
-      if (!isUnique) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('हा कोड आधीच वापरात आहे'),
-          ),
+      try {
+        final existing = await powerSyncDB.getAll(
+          'SELECT COUNT(*) as count FROM produce WHERE code = ? AND id != ?',
+          [code, widget.produceId ?? ''],
         );
-        return;
+
+        final count =
+            (existing.isNotEmpty ? (existing.first['count'] as int?) : 0) ?? 0;
+
+        if (count > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('हा कोड आधीच वापरात आहे'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      } catch (e) {
+        print("❌ Error checking code uniqueness: $e");
       }
     }
 
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
       final now = DateTime.now().toIso8601String();
 
       final produce = {
@@ -99,16 +121,18 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
       };
 
       if (isEditMode) {
-        await db.update(
-          'produce',
-          produce,
-          where: 'id = ?',
-          whereArgs: [widget.produceId],
-        );
+        // PowerSync: Update produce
+        await updateRecord('produce', widget.produceId!, produce);
+        print('✅ Produce updated: $widget.produceId');
       } else {
+        // PowerSync: Insert new produce
         produce['created_at'] = now;
-        await db.insert('produce', produce);
+        produce['active'] = 1;
+        await insertRecord('produce', produce);
+        print('✅ Produce created');
       }
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -119,9 +143,13 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
         ),
       );
 
-      Navigator.pop(context, true);
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) Navigator.pop(context, true);
+      });
     } catch (e) {
-      print("Error saving produce: $e");
+      print("❌ Error saving produce: $e");
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: $e'),
@@ -133,91 +161,38 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     }
   }
 
-  String? _validateCode(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'कोड आवश्यक आहे';
-    }
-
-    final code = value.trim().toUpperCase();
-
-    if (!RegExp(r'^[A-Z0-9]+$').hasMatch(code)) {
-      return 'फक्त अक्षरे आणि अंक वापरा';
-    }
-
-    return null;
-  }
-
-  String? _validateName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'नाव आवश्यक आहे';
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          isEditMode ? 'माल एडिट करा' : 'नवीन माल',
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.purple[700],
+        title: Text(isEditMode ? 'माल संपादित करा' : 'नवीन माल'),
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
-        elevation: 4,
       ),
-      body: isLoading
+      body: isLoading && isEditMode
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
-                    Card(
-                      color: Colors.purple[50],
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.shopping_basket,
-                              size: 40,
-                              color: Colors.purple[700],
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                isEditMode
-                                    ? 'मालाची माहिती अपडेट करा'
-                                    : 'नवीन माल नोंदवा',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
                     // Code Field
                     TextFormField(
                       controller: codeCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'माल कोड *',
-                        hintText: 'AL, PO, etc.',
+                        labelText: 'माल कोड',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.code),
                       ),
-                      textCapitalization: TextCapitalization.characters,
-                      validator: _validateCode,
-                      readOnly: isEditMode && isCodeUsed,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'माल कोड आवश्यक आहे';
+                        }
+                        return null;
+                      },
+                      readOnly: isCodeUsed,
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
 
@@ -225,12 +200,17 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
                     TextFormField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'मालाचे नाव *',
-                        hintText: 'आलू, कांदा, टोमॅटो',
+                        labelText: 'माल नाव',
                         border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.text_fields),
+                        prefixIcon: Icon(Icons.agriculture),
                       ),
-                      validator: _validateName,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'माल नाव आवश्यक आहे';
+                        }
+                        return null;
+                      },
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
 
@@ -238,11 +218,11 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
                     TextFormField(
                       controller: varietyCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'वैरायटी',
-                        hintText: 'चिप्सोना, कुफरी, etc.',
+                        labelText: 'किस्म',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.category),
                       ),
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
 
@@ -250,61 +230,39 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
                     TextFormField(
                       controller: categoryCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'श्रेणी',
-                        hintText: 'सब्जी, फळ, अनाज',
+                        labelText: 'वर्ग',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.label),
                       ),
+                      textInputAction: TextInputAction.done,
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Info Card
-                    Card(
-                      color: Colors.purple[50],
-                      child: const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'महत्वाचे माहिती:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text('• कोड कायमस्वरूपी असतो'),
-                            Text('• कोड डुप्लिकेट असू शकत नाही'),
-                            Text('• वैरायटी: विशिष्ट प्रकार (चिप्सोना, कुफरी)'),
-                            Text('• श्रेणी: मुख्य प्रकार (सब्जी, फळ, अनाज)'),
-                            Text('• उदा: AL - आलू, PO - पोयसे'),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
 
                     // Save Button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: isLoading ? null : _saveProduce,
-                        icon: const Icon(Icons.save),
+                        icon: isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.save),
                         label: Text(
-                          isLoading ? 'सेव होत आहे...' : 'सेव करा',
+                          isEditMode ? 'अपडेट करा' : 'जोडा',
                           style: const TextStyle(fontSize: 16),
                         ),
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
-
-                    const SizedBox(height: 20),
                   ],
                 ),
               ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../core/services/db_service.dart';
+import '../../core/services/powersync_service.dart';
 import '../../core/expense_controller.dart';
 import '../transaction/pavti_list_screen.dart';
 
@@ -27,7 +27,7 @@ class TransactionRow {
 }
 
 class ExpenseItem {
-  final int id;
+  final String id;
   final String name;
   final String calculationType;
   final String applyOn;
@@ -90,17 +90,15 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
   Future<void> _loadExpenseTypes() async {
     try {
-      final db = await DBService.database;
-      final data = await db.query(
-        'expense_types',
-        where: 'active = 1',
-        orderBy: 'name ASC',
+      // PowerSync: Load active expense types
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM expense_types WHERE active = 1 ORDER BY name ASC',
       );
 
       setState(() {
         expenseItems = data.map((row) {
           return ExpenseItem(
-            id: row['id'] as int,
+            id: row['id'] as String,
             name: row['name'] as String,
             calculationType: row['calculation_type'] as String? ?? 'per_unit',
             applyOn: row['apply_on'] as String? ?? 'farmer',
@@ -113,8 +111,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           item.controller.text = item.defaultValue.toStringAsFixed(2);
         }
       });
+
+      print('✅ Loaded ${expenseItems.length} expense types');
     } catch (e) {
-      print("Expense types load error: $e");
+      print("❌ Expense types load error: $e");
+      _showSnackBar("खर्च प्रकार लोड करण्यात त्रुटी: $e");
     }
   }
 
@@ -180,9 +181,12 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       return;
     }
     try {
-      final db = await DBService.database;
-      final data = await db.query('farmers',
-          where: 'code = ? AND active = 1', whereArgs: [code]);
+      // PowerSync: Lookup farmer by code
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM farmers WHERE code = ? AND active = 1',
+        [code],
+      );
+
       setState(() {
         if (data.isEmpty) {
           farmerNameCtrl.text = "";
@@ -193,7 +197,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         }
       });
     } catch (e) {
-      print("Farmer lookup error: $e");
+      print("❌ Farmer lookup error: $e");
     }
   }
 
@@ -206,9 +210,12 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       return;
     }
     try {
-      final db = await DBService.database;
-      final data = await db.query('produce',
-          where: 'code = ? AND active = 1', whereArgs: [code]);
+      // PowerSync: Lookup produce by code
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM produce WHERE code = ? AND active = 1',
+        [code],
+      );
+
       setState(() {
         if (data.isEmpty) {
           produceNameCtrl.text = "";
@@ -217,7 +224,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         }
       });
     } catch (e) {
-      print("Produce lookup error: $e");
+      print("❌ Produce lookup error: $e");
     }
   }
 
@@ -231,14 +238,17 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     }
     if (code == "R") {
       setState(() {
-        traderNameCtrl.text = "Rokda";
+        traderNameCtrl.text = "रोकडा (Cash)";
       });
       return;
     }
     try {
-      final db = await DBService.database;
-      final data = await db.query('traders',
-          where: 'code = ? AND active = 1', whereArgs: [code]);
+      // PowerSync: Lookup trader by code
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM traders WHERE code = ? AND active = 1',
+        [code],
+      );
+
       setState(() {
         if (data.isEmpty) {
           traderNameCtrl.text = "";
@@ -247,7 +257,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         }
       });
     } catch (e) {
-      print("Trader lookup error: $e");
+      print("❌ Trader lookup error: $e");
     }
   }
 
@@ -259,7 +269,6 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
     double sum = 0;
     double totalDag = rows.fold(0, (s, r) => s + r.dag);
-    // double totalWeight = rows.fold(0, (s, r) => s + r.weight);
     double totalAmt = totalAmount;
 
     for (var exp in expenseItems) {
@@ -272,13 +281,13 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       double calculated = 0.0;
       switch (exp.calculationType) {
         case 'per_dag':
-          calculated = totalDag * entered; // डाग × मूल्य
+          calculated = totalDag * entered;
           break;
         case 'percentage':
           calculated = totalAmt * (entered / 100);
           break;
         case 'fixed':
-          calculated = entered; // फिक्स्ड अमाउंट (प्रति पावती)
+          calculated = entered;
           break;
         default:
           calculated = 0.0;
@@ -382,7 +391,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     produceLocked
         ? traderCodeFocus.requestFocus()
         : produceCodeFocus.requestFocus();
-    _showSnackBar("एंट्री जोडली गेली");
+    _showSnackBar("एंट्री जोडली गेली", isError: false);
   }
 
   // Save Transaction
@@ -393,75 +402,70 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     }
 
     try {
-      int newBillNo = await DBService.getNextParchiId();
-      print("New Bill Number: $newBillNo"); // चेक करण्यासाठी
-      // final db = await DBService.instance.database;
-      final db = await DBService.database;
+      // PowerSync: Get next parchi_id
+      final lastParchi = await powerSyncDB.getAll(
+        'SELECT MAX(CAST(parchi_id AS INTEGER)) as max_id FROM transactions',
+      );
 
-      int? pavtiId;
+      int newBillNo = 1;
+      if (lastParchi.isNotEmpty && lastParchi.first['max_id'] != null) {
+        newBillNo = (lastParchi.first['max_id'] as int) + 1;
+      }
 
-      await db.transaction((txn) async {
-        final firstRow = rows.first;
-        pavtiId = await txn.insert('transactions', {
-          'parchi_id': newBillNo,
+      print("✅ New Bill Number: $newBillNo");
+
+      final now = DateTime.now().toIso8601String();
+
+      // PowerSync: Insert all transaction rows
+      for (int i = 0; i < rows.length; i++) {
+        final row = rows[i];
+
+        await insertRecord('transactions', {
+          'parchi_id': newBillNo.toString(),
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
           'farmer_name': farmerNameCtrl.text,
-          'trader_code': firstRow.traderCode,
-          'trader_name': firstRow.traderName,
-          'produce_code': firstRow.produceCode,
-          'produce_name': firstRow.produceName,
-          'dag': firstRow.dag,
-          'quantity': firstRow.weight,
-          'rate': firstRow.rate,
-          'gross': firstRow.total,
+          'trader_code': row.traderCode,
+          'trader_name': row.traderName,
+          'produce_code': row.produceCode,
+          'produce_name': row.produceName,
+          'dag': row.dag,
+          'quantity': row.weight,
+          'rate': row.rate,
+          'gross': row.total,
           'total_expense': totalExpense,
           'net': netTotal,
           'created_at': selectedDate.toIso8601String(),
+          'updated_at': now,
         });
+      }
 
-        for (final row in rows.skip(1)) {
-          await txn.insert('transactions', {
-            'parchi_id': newBillNo,
-            'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
-            'farmer_name': farmerNameCtrl.text,
-            'trader_code': row.traderCode,
-            'trader_name': row.traderName,
-            'produce_code': row.produceCode,
-            'produce_name': row.produceName,
-            'dag': row.dag,
-            'quantity': row.weight,
-            'rate': row.rate,
-            'gross': row.total,
-            'total_expense': totalExpense,
-            'net': netTotal,
-            'created_at': selectedDate.toIso8601String(),
-          });
-        }
-
-        if (expenseExpanded && expenseItems.isNotEmpty) {
-          for (var exp in expenseItems) {
-            final amount =
-                double.tryParse(exp.controller.text) ?? exp.defaultValue;
-            if (amount > 0) {
-              await txn.insert('transaction_expenses', {
-                'parchi_id': pavtiId,
-                'expense_type_id': exp.id,
-                'amount': amount,
-                'created_at': DateTime.now().toIso8601String(),
-              });
-            }
+      // PowerSync: Insert expenses if any
+      if (expenseExpanded && expenseItems.isNotEmpty) {
+        for (var exp in expenseItems) {
+          final amount =
+              double.tryParse(exp.controller.text) ?? exp.defaultValue;
+          if (amount > 0) {
+            await insertRecord('transaction_expenses', {
+              'parchi_id': newBillNo.toString(),
+              'expense_type_id': exp.id,
+              'amount': amount,
+              'created_at': now,
+              'updated_at': now,
+            });
           }
         }
-      });
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('पावती नं. $newBillNo यशस्वीरित्या सेव्ह झाली!')),
+          content: Text('पावती नं. $newBillNo यशस्वीरित्या सेव्ह झाली!'),
+          backgroundColor: Colors.green,
+        ),
       );
 
       _resetForm();
     } catch (e) {
-      print("Save error: $e");
+      print("❌ Save error: $e");
       _showSnackBar("पावती सेव करण्यात त्रुटी: $e");
     }
   }
@@ -482,6 +486,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       produceLocked = false;
       farmerNameEditable = false;
       expenseExpanded = false;
+      selectedDate = DateTime.now();
     });
 
     farmerCodeFocus.requestFocus();
@@ -501,7 +506,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('नवीन पावती'), // नवीन नाम
+        title: const Text('नवीन पावती'),
         centerTitle: true,
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
@@ -516,7 +521,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                   // Farmer + Date in one line (compact)
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(8), // स्पेस कमी
+                      padding: const EdgeInsets.all(8),
                       child: Row(
                         children: [
                           Expanded(
@@ -568,11 +573,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Entry Table (ऑटो स्क्रॉल)
+                  // Entry Table
                   if (rows.isNotEmpty) ...[
                     Card(
                       child: Padding(
-                        padding: const EdgeInsets.all(8), // स्पेस कमी
+                        padding: const EdgeInsets.all(8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -583,8 +588,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                     color: Colors.green)),
                             const SizedBox(height: 8),
                             SizedBox(
-                              height:
-                                  200, // 6-7 एंट्रीसाठी हाइट – जास्त झालं तर स्क्रॉल
+                              height: 200,
                               child: SingleChildScrollView(
                                 scrollDirection: Axis.vertical,
                                 child: SingleChildScrollView(
@@ -743,13 +747,13 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                           const SizedBox(width: 8),
                           ElevatedButton(
                             onPressed: _addRow,
-                            child: const Text('जोडा'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 20, vertical: 15),
                             ),
+                            child: const Text('जोडा'),
                           ),
                         ],
                       ),
@@ -761,7 +765,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                   // Expenses Section
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(8), // स्पेस कमी केली
+                      padding: const EdgeInsets.all(8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -821,7 +825,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                   calculatedAmount =
                                       (totalWeight / unitSize) * enteredValue;
                                   break;
-                                case 'per_bag':
+                                case 'per_dag':
                                   calculatedAmount = totalDag * enteredValue;
                                   break;
                                 case 'percentage':
@@ -837,7 +841,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                     Expanded(
                                       flex: 3,
                                       child: Text(
-                                        '${exp.name} (${exp.calculationType == 'per_unit' ? 'प्रति युनिट' : exp.calculationType == 'per_bag' ? 'प्रति डाग' : 'टक्केवारी'})',
+                                        '${exp.name} (${exp.calculationType == 'per_unit' ? 'प्रति युनिट' : exp.calculationType == 'per_dag' ? 'प्रति डाग' : 'टक्केवारी'})',
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold),
                                       ),
@@ -848,53 +852,37 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                         controller: exp.controller,
                                         keyboardType: TextInputType.number,
                                         decoration: const InputDecoration(
-                                          hintText: 'मूल्य',
                                           border: OutlineInputBorder(),
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 8),
                                         ),
                                         onChanged: (_) => setState(() {}),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green[50],
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                            color: Colors.green[200]!),
-                                      ),
-                                      child: Text(
-                                        '₹${calculatedAmount.toStringAsFixed(2)}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Color.fromARGB(
-                                                255, 46, 125, 50)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          border:
+                                              Border.all(color: Colors.grey),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '₹${calculatedAmount.toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               );
                             }).toList(),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'एकूण खर्च:',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16),
-                                ),
-                                Text(
-                                  '₹${totalExpense.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      color: Colors.red),
-                                ),
-                              ],
-                            ),
                           ],
                         ],
                       ),
@@ -1004,7 +992,6 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // पुढील पावती – नवी रीसेट करून तयार कर
                       _resetForm();
                     },
                     icon: const Icon(Icons.arrow_forward),
@@ -1020,11 +1007,10 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // मागील पावती – पावती यादी उघड
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => PavtiListScreen()),
+                            builder: (context) => const PavtiListScreen()),
                       );
                     },
                     icon: const Icon(Icons.arrow_back),

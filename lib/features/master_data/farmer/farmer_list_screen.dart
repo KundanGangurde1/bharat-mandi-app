@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'farmer_form_screen.dart';
-import '../../../core/services/db_service.dart';
+import '../../../core/services/powersync_service.dart';
 
 class FarmerListScreen extends StatefulWidget {
   const FarmerListScreen({super.key});
@@ -24,19 +24,25 @@ class _FarmerListScreenState extends State<FarmerListScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
-      final data = await db.query(
-        'farmers',
-        orderBy: 'name ASC',
+      // PowerSync: Get all farmers ordered by name
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM farmers ORDER BY name ASC',
       );
 
       setState(() {
         farmers = data;
         isLoading = false;
       });
+
+      print('✅ Loaded ${farmers.length} farmers');
     } catch (e) {
-      print("Error loading farmers: $e");
+      print("❌ Error loading farmers: $e");
       setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     }
   }
 
@@ -209,18 +215,24 @@ class _FarmerListScreenState extends State<FarmerListScreen> {
                                           isActive ? Colors.green : Colors.grey,
                                     ),
                                     onPressed: () async {
-                                      // Toggle active status
+                                      // PowerSync: Toggle active status
                                       try {
-                                        final db = await DBService.database;
-                                        await db.update(
+                                        await updateRecord(
                                           'farmers',
+                                          farmer['id'] as String,
                                           {'active': isActive ? 0 : 1},
-                                          where: 'id = ?',
-                                          whereArgs: [farmer['id']],
                                         );
                                         await _loadFarmers();
                                       } catch (e) {
-                                        print("Error toggling farmer: $e");
+                                        print("❌ Error toggling farmer: $e");
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text('त्रुटी: $e'),
+                                            ),
+                                          );
+                                        }
                                       }
                                     },
                                     tooltip: isActive
@@ -236,7 +248,7 @@ class _FarmerListScreenState extends State<FarmerListScreen> {
                                         MaterialPageRoute(
                                           builder: (context) =>
                                               FarmerFormScreen(
-                                            farmerId: farmer['id'],
+                                            farmerId: farmer['id'] as String,
                                           ),
                                         ),
                                       );
@@ -254,7 +266,7 @@ class _FarmerListScreenState extends State<FarmerListScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => FarmerFormScreen(
-                                      farmerId: farmer['id'],
+                                      farmerId: farmer['id'] as String,
                                     ),
                                   ),
                                 );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/db_service.dart';
+import '../../../core/services/powersync_service.dart';
 import '../expense_type/expense_type_form_screen.dart';
 
 class ExpenseTypeListScreen extends StatefulWidget {
@@ -26,44 +26,53 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
-      String where = '';
-      List<Object?> whereArgs = [];
+      // PowerSync: Load expense types with optional filter
+      String query = 'SELECT * FROM expense_types';
+      List<dynamic> params = [];
 
       if (selectedFilter != 'all') {
-        where = 'apply_on = ?';
-        whereArgs.add(selectedFilter);
+        query += ' WHERE apply_on = ?';
+        params.add(selectedFilter);
       }
 
-      final data = await db.query(
-        'expense_types',
-        where: where.isNotEmpty ? where : null,
-        whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-        orderBy: 'apply_on, name ASC',
-      );
+      query += ' ORDER BY apply_on, name ASC';
+
+      final data = await powerSyncDB.getAll(query, params);
 
       setState(() {
         expenseTypes = data;
         isLoading = false;
       });
+
+      print('✅ Loaded ${expenseTypes.length} expense types');
     } catch (e) {
-      print("Error loading expense types: $e");
+      print("❌ Error loading expense types: $e");
       setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _toggleActive(int id, bool currentStatus) async {
+  Future<void> _toggleActive(String id, bool currentStatus) async {
     try {
-      await DBService.toggleExpenseType(id, !currentStatus);
+      // PowerSync: Toggle active status
+      await updateRecord(
+        'expense_types',
+        id,
+        {'active': currentStatus ? 0 : 1},
+      );
       await _loadExpenseTypes();
       _showSnackBar('स्टेटस अपडेट झाला');
     } catch (e) {
-      print("Error updating expense type: $e");
+      print("❌ Error updating expense type: $e");
       _showSnackBar('त्रुटी: $e');
     }
   }
 
-  Future<void> _deleteExpense(int id) async {
+  Future<void> _deleteExpense(String id) async {
     final confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -85,11 +94,12 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
     if (confirmed != true) return;
 
     try {
-      await DBService.deleteExpenseType(id);
+      // PowerSync: Delete expense type
+      await deleteRecord('expense_types', id);
       await _loadExpenseTypes();
       _showSnackBar('खर्च प्रकार डिलीट झाला');
     } catch (e) {
-      print("Error deleting expense: $e");
+      print("❌ Error deleting expense: $e");
       _showSnackBar('त्रुटी: $e');
     }
   }
@@ -106,12 +116,8 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
         return '₹ (Fixed)';
       case 'percentage':
         return '% (Percentage)';
-      case 'per_piece':
-        return 'प्रति नग';
-      case 'per_bag':
+      case 'per_dag':
         return 'प्रति डाग';
-      case 'per_weight':
-        return 'प्रति वजन';
       default:
         return mode;
     }
@@ -126,10 +132,13 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('खर्च प्रकार व्यवस्थापन'),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadExpenseTypes,
+            tooltip: 'रिफ्रेश',
           ),
         ],
       ),
@@ -273,7 +282,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                       const SizedBox(width: 8),
                                       Chip(
                                         label: Text(_getModeDisplay(
-                                            expense['mode'] ?? '')),
+                                            expense['calculation_type'] ?? '')),
                                         backgroundColor: Colors.green[100],
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 0),
@@ -283,7 +292,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'डिफॉल्ट: ${expense['default_value']}'
-                                    '${expense['mode'] == 'percentage' ? '%' : '₹'}',
+                                    '${expense['calculation_type'] == 'percentage' ? '%' : '₹'}',
                                   ),
                                   if (!showInReport)
                                     const Text(
@@ -342,7 +351,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                       MaterialPageRoute(
                                         builder: (context) =>
                                             ExpenseTypeFormScreen(
-                                          expenseId: expense['id'],
+                                          expenseId: expense['id'] as String,
                                         ),
                                       ),
                                     );
@@ -352,9 +361,10 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                     }
                                   } else if (value == 'toggle') {
                                     await _toggleActive(
-                                        expense['id'], isActive);
+                                        expense['id'] as String, isActive);
                                   } else if (value == 'delete') {
-                                    await _deleteExpense(expense['id']);
+                                    await _deleteExpense(
+                                        expense['id'] as String);
                                   }
                                 },
                               ),
@@ -363,7 +373,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => ExpenseTypeFormScreen(
-                                      expenseId: expense['id'],
+                                      expenseId: expense['id'] as String,
                                     ),
                                   ),
                                 );

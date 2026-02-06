@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/db_service.dart';
+import '../../../core/services/powersync_service.dart';
 
 class FarmerFormScreen extends StatefulWidget {
-  final int? farmerId;
+  final String? farmerId;
 
   const FarmerFormScreen({super.key, this.farmerId});
 
@@ -21,7 +21,7 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
 
   bool isLoading = false;
   bool isEditMode = false;
-  bool isCodeUsed = false; // Store if code is used in transactions
+  bool isCodeUsed = false;
   Map<String, dynamic>? farmerData;
 
   @override
@@ -40,11 +40,10 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
-      final data = await db.query(
-        'farmers',
-        where: 'id = ?',
-        whereArgs: [widget.farmerId],
+      // PowerSync: Get farmer by ID
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM farmers WHERE id = ?',
+        [widget.farmerId],
       );
 
       if (data.isNotEmpty) {
@@ -56,16 +55,26 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
         addressCtrl.text = farmerData!['address']?.toString() ?? '';
         balanceCtrl.text = farmerData!['opening_balance']?.toString() ?? '0';
 
-        // Check if code is used in transactions
-        final isUsed = await DBService.isCodeUsedInTransaction(
-            farmerData!['code']?.toString() ?? '', 'farmers');
+        // PowerSync: Check if code is used in transactions
+        final isUsedResult = await powerSyncDB.getAll(
+          'SELECT COUNT(*) as count FROM transactions WHERE farmer_code = ?',
+          [farmerData!['code']?.toString() ?? ''],
+        );
+
+        final isUsed =
+            isUsedResult.isNotEmpty && (isUsedResult[0]['count'] as int) > 0;
 
         setState(() {
           isCodeUsed = isUsed;
         });
       }
     } catch (e) {
-      print("Error loading farmer: $e");
+      print("❌ Error loading farmer: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -74,35 +83,51 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
   Future<void> _saveFarmer() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Validate code uniqueness (except for edit mode with same code)
     final code = codeCtrl.text.trim().toUpperCase();
 
+    // Validate code uniqueness (except for edit mode with same code)
     if (!isEditMode || code != farmerData?['code']) {
-      final isUnique = await DBService.isCodeUnique(code);
-      if (!isUnique) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('हा कोड आधीच वापरात आहे'),
-          ),
+      try {
+        final uniqueResult = await powerSyncDB.getAll(
+          'SELECT COUNT(*) as count FROM farmers WHERE code = ?',
+          [code],
         );
+
+        final isUnique =
+            uniqueResult.isEmpty || (uniqueResult[0]['count'] as int) == 0;
+
+        if (!isUnique) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('हा कोड आधीच वापरात आहे')),
+            );
+          }
+          return;
+        }
+      } catch (e) {
+        print("❌ Error checking code uniqueness: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('कोड तपासणीमध्ये त्रुटी: $e')),
+          );
+        }
         return;
       }
     }
 
     // Check for reserved code
     if (code == '100') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('100 कोड रिझर्व्हड आहे'),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('100 कोड रिझर्व्हड आहे')),
+        );
+      }
       return;
     }
 
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
       final now = DateTime.now().toIso8601String();
 
       final farmer = {
@@ -111,37 +136,42 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
         'phone': phoneCtrl.text.trim(),
         'address': addressCtrl.text.trim(),
         'opening_balance': double.tryParse(balanceCtrl.text) ?? 0,
+        'active': 1,
         'updated_at': now,
       };
 
       if (isEditMode) {
-        await db.update(
-          'farmers',
-          farmer,
-          where: 'id = ?',
-          whereArgs: [widget.farmerId],
-        );
+        // PowerSync: Update farmer
+        farmer['updated_at'] = now;
+        await updateRecord('farmers', widget.farmerId!, farmer);
+
+        print('✅ Farmer updated successfully');
       } else {
+        // PowerSync: Insert new farmer
         farmer['created_at'] = now;
-        await db.insert('farmers', farmer);
+        farmer['active'] = 1;
+        await insertRecord('farmers', farmer);
+
+        print('✅ Farmer created successfully');
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEditMode ? 'शेतकरी अपडेट झाला' : 'शेतकरी जोडला गेला',
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isEditMode ? 'शेतकरी अपडेट झाला' : 'शेतकरी जोडला गेला',
+            ),
           ),
-        ),
-      );
-
-      Navigator.pop(context, true);
+        );
+        Navigator.pop(context, true);
+      }
     } catch (e) {
-      print("Error saving farmer: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('त्रुटी: $e'),
-        ),
-      );
+      print("❌ Error saving farmer: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -154,12 +184,10 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
 
     final code = value.trim().toUpperCase();
 
-    // Check for invalid characters
     if (!RegExp(r'^[A-Z0-9]+$').hasMatch(code)) {
       return 'फक्त अक्षरे आणि अंक वापरा';
     }
 
-    // Check for reserved code
     if (code == '100') {
       return '100 कोड रिझर्व्हड आहे';
     }
@@ -176,7 +204,7 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
 
   String? _validateBalance(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return null; // Optional field
+      return null;
     }
 
     final amount = double.tryParse(value);
@@ -215,8 +243,7 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
                       ),
                       textCapitalization: TextCapitalization.characters,
                       validator: _validateCode,
-                      readOnly:
-                          isEditMode && isCodeUsed, // FIXED: No await here
+                      readOnly: isEditMode && isCodeUsed,
                     ),
                     const SizedBox(height: 16),
 

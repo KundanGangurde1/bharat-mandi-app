@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'produce_form_screen.dart';
-import '../../../core/services/db_service.dart';
+import '../../../core/services/powersync_service.dart';
 
 class ProduceListScreen extends StatefulWidget {
   const ProduceListScreen({super.key});
@@ -24,19 +24,25 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
-      final data = await db.query(
-        'produce',
-        orderBy: 'name ASC',
+      // PowerSync: Get all produce ordered by name
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM produce ORDER BY name ASC',
       );
 
       setState(() {
         produceList = data;
         isLoading = false;
       });
+
+      print('✅ Loaded ${produceList.length} produce items');
     } catch (e) {
-      print("Error loading produce: $e");
+      print("❌ Error loading produce: $e");
       setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     }
   }
 
@@ -55,27 +61,26 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
     }).toList();
   }
 
-  Future<void> _toggleActive(int id, bool currentStatus) async {
+  Future<void> _toggleActive(String id, bool currentStatus) async {
     try {
-      final db = await DBService.database;
-      await db.update(
+      // PowerSync: Toggle active status
+      await updateRecord(
         'produce',
+        id,
         {'active': currentStatus ? 0 : 1},
-        where: 'id = ?',
-        whereArgs: [id],
       );
 
       await _loadProduce();
       _showSnackBar('स्टेटस अपडेट झाला');
     } catch (e) {
-      print("Error updating produce: $e");
+      print("❌ Error updating produce: $e");
       _showSnackBar('त्रुटी: $e');
     }
   }
 
-  Future<void> _deleteProduce(int id, String code) async {
-    // Check if code is used in transactions
-    final isUsed = await DBService.isCodeUsedInTransaction(code, 'produce');
+  Future<void> _deleteProduce(String id, String code) async {
+    // PowerSync: Check if code is used in transactions
+    final isUsed = await isCodeUsedInTransaction(code, 'produce');
 
     if (isUsed) {
       _showSnackBar('हा कोड वापरात आहे. डिलीट करू शकत नाही.');
@@ -106,17 +111,13 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
     if (confirmed != true) return;
 
     try {
-      final db = await DBService.database;
-      await db.delete(
-        'produce',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      // PowerSync: Delete produce
+      await deleteRecord('produce', id);
 
       await _loadProduce();
       _showSnackBar('माल डिलीट झाला');
     } catch (e) {
-      print("Error deleting produce: $e");
+      print("❌ Error deleting produce: $e");
       _showSnackBar('त्रुटी: $e');
     }
   }
@@ -285,7 +286,8 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
                                           isActive ? Colors.green : Colors.grey,
                                     ),
                                     onPressed: () async {
-                                      await _toggleActive(item['id'], isActive);
+                                      await _toggleActive(
+                                          item['id'] as String, isActive);
                                     },
                                     tooltip: isActive
                                         ? 'निष्क्रिय करा'
@@ -300,7 +302,7 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
                                         MaterialPageRoute(
                                           builder: (context) =>
                                               ProduceFormScreen(
-                                            produceId: item['id'],
+                                            produceId: item['id'] as String,
                                           ),
                                         ),
                                       );
@@ -311,6 +313,17 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
                                     },
                                     tooltip: 'एडिट करा',
                                   ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () async {
+                                      await _deleteProduce(
+                                        item['id'] as String,
+                                        item['code']?.toString() ?? '',
+                                      );
+                                    },
+                                    tooltip: 'डिलीट करा',
+                                  ),
                                 ],
                               ),
                               onTap: () async {
@@ -318,7 +331,7 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => ProduceFormScreen(
-                                      produceId: item['id'],
+                                      produceId: item['id'] as String,
                                     ),
                                   ),
                                 );
@@ -362,7 +375,7 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: color.withValues(),
+            color: color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: color, size: 24),

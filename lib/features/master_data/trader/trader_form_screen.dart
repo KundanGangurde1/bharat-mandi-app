@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/db_service.dart';
+import '../../../core/services/powersync_service.dart';
 
 class TraderFormScreen extends StatefulWidget {
-  final int? traderId;
+  final String? traderId;
 
   const TraderFormScreen({super.key, this.traderId});
 
@@ -42,11 +42,10 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
-      final data = await db.query(
-        'traders',
-        where: 'id = ?',
-        whereArgs: [widget.traderId],
+      // PowerSync: Load trader data
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM traders WHERE id = ?',
+        [widget.traderId],
       );
 
       if (data.isNotEmpty) {
@@ -59,8 +58,8 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
         areaCtrl.text = traderData!['area']?.toString() ?? '';
         balanceCtrl.text = traderData!['opening_balance']?.toString() ?? '0';
 
-        // Check if code is used in transactions
-        final isUsed = await DBService.isCodeUsedInTransaction(
+        // PowerSync: Check if code is used in transactions
+        final isUsed = await isCodeUsedInTransaction(
             traderData!['code']?.toString() ?? '', 'traders');
 
         setState(() {
@@ -68,7 +67,12 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
         });
       }
     } catch (e) {
-      print("Error loading trader: $e");
+      print("❌ Error loading trader: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -90,7 +94,8 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
     }
 
     if (!isEditMode || code != traderData?['code']) {
-      final isUnique = await DBService.isCodeUnique(code);
+      // PowerSync: Check code uniqueness
+      final isUnique = await isCodeUnique(code, 'traders');
       if (!isUnique) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -104,7 +109,6 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      final db = await DBService.database;
       final now = DateTime.now().toIso8601String();
 
       final trader = {
@@ -119,15 +123,12 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
       };
 
       if (isEditMode) {
-        await db.update(
-          'traders',
-          trader,
-          where: 'id = ?',
-          whereArgs: [widget.traderId],
-        );
+        // PowerSync: Update trader
+        await updateRecord('traders', widget.traderId!, trader);
       } else {
         trader['created_at'] = now;
-        await db.insert('traders', trader);
+        // PowerSync: Insert trader
+        await insertRecord('traders', trader);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -141,7 +142,7 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
 
       Navigator.pop(context, true);
     } catch (e) {
-      print("Error saving trader: $e");
+      print("❌ Error saving trader: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: $e'),
@@ -283,12 +284,12 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Area Dropdown
                     FutureBuilder<List<Map<String, dynamic>>>(
-                      future: DBService.database.then((db) => db.query(
-                            'areas',
-                            where: 'active = 1',
-                            orderBy: 'name ASC',
-                          )),
+                      future: powerSyncDB.getAll(
+                        'SELECT * FROM areas WHERE active = 1 ORDER BY name ASC',
+                      ),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
@@ -309,6 +310,7 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
                             hintText: 'एरिया निवडा',
                             border: OutlineInputBorder(),
                           ),
+                          value: selectedAreaId,
                           items: areas.map((area) {
                             return DropdownMenuItem<String>(
                               value: area['id'].toString(),
@@ -316,8 +318,9 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
                             );
                           }).toList(),
                           onChanged: (value) {
-                            // तुझ्या form मध्ये selectedAreaId हे व्हेरिएबल अॅड कर (खाली सांगितलंय)
-                            selectedAreaId = value;
+                            setState(() {
+                              selectedAreaId = value;
+                            });
                           },
                           validator: (value) =>
                               value == null ? 'एरिया निवडा' : null,
@@ -325,6 +328,7 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
+
                     // Area
                     TextFormField(
                       controller: areaCtrl,
