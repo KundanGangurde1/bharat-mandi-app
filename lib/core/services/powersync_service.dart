@@ -119,7 +119,7 @@ final schema = Schema([
   ]),
 ]);
 
-// ✅ Initialize PowerSync
+// ✅ Initialize PowerSync (Local-first, offline-ready)
 Future<void> initPowerSync() async {
   try {
     // Get app documents directory
@@ -128,7 +128,7 @@ Future<void> initPowerSync() async {
 
     print('📱 PowerSync DB Path: $dbPath');
 
-    // Initialize PowerSync database
+    // Initialize PowerSync database (local-first)
     powerSyncDB = PowerSyncDatabase(
       schema: schema,
       path: dbPath,
@@ -139,6 +139,7 @@ Future<void> initPowerSync() async {
 
     print('✅ PowerSync initialized successfully');
     print('✅ All 9 tables ready for offline-first sync');
+    print('✅ Local database ready - Supabase sync will be added next');
   } catch (e) {
     print('❌ PowerSync initialization error: $e');
     rethrow;
@@ -178,12 +179,11 @@ Future<Map<String, dynamic>> getSyncStatus() async {
   }
 }
 
-// ✅ Manual sync trigger
+// ✅ Manual sync trigger (for future Supabase integration)
 Future<void> triggerSync() async {
   try {
     print('🔄 Triggering manual sync...');
-    // PowerSync automatically syncs in background
-    // This is just for manual trigger if needed
+    // PowerSync will handle sync automatically once Supabase is connected
     print('✅ Sync triggered');
   } catch (e) {
     print('❌ Sync error: $e');
@@ -233,5 +233,74 @@ Future<Map<String, int>> getDatabaseStats() async {
   } catch (e) {
     print('❌ Stats error: $e');
     return {};
+  }
+}
+
+// ✅ Query helper - Get all records from a table
+Future<List<Map<String, dynamic>>> getAllRecords(String tableName) async {
+  try {
+    return await powerSyncDB.getAll('SELECT * FROM $tableName');
+  } catch (e) {
+    print('❌ Query error: $e');
+    return [];
+  }
+}
+
+// ✅ Query helper - Get record by ID
+Future<Map<String, dynamic>?> getRecordById(String tableName, int id) async {
+  try {
+    final results =
+        await powerSyncDB.getAll('SELECT * FROM $tableName WHERE id = ?', [id]);
+    return results.isNotEmpty ? results[0] : null;
+  } catch (e) {
+    print('❌ Query error: $e');
+    return null;
+  }
+}
+
+// ✅ Insert record
+Future<void> insertRecord(String tableName, Map<String, dynamic> data) async {
+  try {
+    final columns = data.keys.join(', ');
+    final placeholders = List.filled(data.length, '?').join(', ');
+    final values = data.values.toList();
+
+    await powerSyncDB.execute(
+      'INSERT INTO $tableName ($columns) VALUES ($placeholders)',
+      values,
+    );
+    print('✅ Record inserted into $tableName');
+  } catch (e) {
+    print('❌ Insert error: $e');
+  }
+}
+
+// ✅ Update record
+Future<void> updateRecord(
+    String tableName, int id, Map<String, dynamic> data) async {
+  try {
+    final updates = data.keys.map((k) => '$k = ?').join(', ');
+    final values = [...data.values, id];
+
+    await powerSyncDB.execute(
+      'UPDATE $tableName SET $updates WHERE id = ?',
+      values,
+    );
+    print('✅ Record updated in $tableName');
+  } catch (e) {
+    print('❌ Update error: $e');
+  }
+}
+
+// ✅ Delete record
+Future<void> deleteRecord(String tableName, int id) async {
+  try {
+    await powerSyncDB.execute(
+      'DELETE FROM $tableName WHERE id = ?',
+      [id],
+    );
+    print('✅ Record deleted from $tableName');
+  } catch (e) {
+    print('❌ Delete error: $e');
   }
 }

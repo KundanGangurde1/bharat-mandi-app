@@ -15,8 +15,11 @@ dependencies:
   cupertino_icons: ^1.0.2
   provider: ^6.1.2
 
-  # ✅ POWERSYNC (Offline-First Sync) - Latest stable
+  # ✅ POWERSYNC (Offline-First Sync)
   powersync: ^1.4.0
+
+  # ✅ HTTP for Supabase connection
+  http: ^1.1.0
 
   # ✅ Utilities
   path_provider: ^2.1.5
@@ -25,7 +28,7 @@ dependencies:
   uuid: ^4.2.1
   connectivity_plus: ^5.0.0
 
-  # ✅ Keep SQLite for compatibility (PowerSync uses it internally)
+  # ✅ Database (PowerSync uses it internally)
   sqflite: ^2.3.3+1
   sqflite_common_ffi: ^2.3.3
 
