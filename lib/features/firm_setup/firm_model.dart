@@ -1,7 +1,7 @@
 class Firm {
-  final int? id;
+  final String? id;
   final String name;
-  final String? code;
+  final String code;
   final String owner_name;
   final String phone;
   final String email;
@@ -13,12 +13,12 @@ class Firm {
   final String? pan_number;
   final bool active;
   final String created_at;
-  final String? updated_at;
+  final String updated_at;
 
   Firm({
     this.id,
     required this.name,
-    this.code,
+    required this.code,
     required this.owner_name,
     required this.phone,
     required this.email,
@@ -30,9 +30,10 @@ class Firm {
     this.pan_number,
     this.active = true,
     required this.created_at,
-    this.updated_at,
+    required this.updated_at,
   });
 
+  // Convert to Map for database
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -53,28 +54,30 @@ class Firm {
     };
   }
 
+  // Create from Map
   factory Firm.fromMap(Map<String, dynamic> map) {
     return Firm(
-      id: map['id'],
-      name: map['name'] ?? '',
-      code: map['code'],
-      owner_name: map['owner_name'] ?? '',
-      phone: map['phone'] ?? '',
-      email: map['email'] ?? '',
-      address: map['address'] ?? '',
-      city: map['city'] ?? '',
-      state: map['state'] ?? '',
-      pincode: map['pincode'] ?? '',
-      gst_number: map['gst_number'],
-      pan_number: map['pan_number'],
-      active: (map['active'] ?? 1) == 1,
-      created_at: map['created_at'] ?? DateTime.now().toIso8601String(),
-      updated_at: map['updated_at'],
+      id: map['id']?.toString(),
+      name: map['name']?.toString() ?? '',
+      code: map['code']?.toString() ?? '',
+      owner_name: map['owner_name']?.toString() ?? '',
+      phone: map['phone']?.toString() ?? '',
+      email: map['email']?.toString() ?? '',
+      address: map['address']?.toString() ?? '',
+      city: map['city']?.toString() ?? '',
+      state: map['state']?.toString() ?? '',
+      pincode: map['pincode']?.toString() ?? '',
+      gst_number: map['gst_number']?.toString(),
+      pan_number: map['pan_number']?.toString(),
+      active: (map['active'] as int?) == 1,
+      created_at: map['created_at']?.toString() ?? '',
+      updated_at: map['updated_at']?.toString() ?? '',
     );
   }
 
+  // Copy with changes
   Firm copyWith({
-    int? id,
+    String? id,
     String? name,
     String? code,
     String? owner_name,
@@ -107,5 +110,10 @@ class Firm {
       created_at: created_at ?? this.created_at,
       updated_at: updated_at ?? this.updated_at,
     );
+  }
+
+  @override
+  String toString() {
+    return 'Firm(id: $id, name: $name, code: $code, owner_name: $owner_name)';
   }
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:powersync/powersync.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
+import 'package:uuid/uuid.dart';
 
 late PowerSyncDatabase powerSyncDB;
 
@@ -255,50 +256,54 @@ Future<Map<String, dynamic>?> getRecordById(String tableName, String id) async {
 }
 
 // ✅ Insert record
-Future<void> insertRecord(String tableName, Map<String, dynamic> data) async {
-  try {
-    final columns = data.keys.join(', ');
-    final placeholders = List.filled(data.length, '?').join(', ');
-    final values = data.values.toList();
+final _uuid = const Uuid();
 
-    await powerSyncDB.execute(
-      'INSERT INTO $tableName ($columns) VALUES ($placeholders)',
+Future<void> insertRecord(
+  String table,
+  Map<String, dynamic> data,
+) async {
+  await powerSyncDB.writeTransaction((txn) async {
+    final record = {
+      'id': _uuid.v4(), // ✅ MANUAL ID (REQUIRED)
+      ...data,
+    };
+
+    final columns = record.keys.join(', ');
+    final placeholders = List.filled(record.length, '?').join(', ');
+    final values = record.values.toList();
+
+    await txn.execute(
+      'INSERT INTO $table ($columns) VALUES ($placeholders)',
       values,
     );
-    print('✅ Record inserted into $tableName');
-  } catch (e) {
-    print('❌ Insert error: $e');
-  }
+  });
 }
 
 // ✅ Update record
 Future<void> updateRecord(
-    String tableName, String id, Map<String, dynamic> data) async {
-  try {
+  String table,
+  String id,
+  Map<String, dynamic> data,
+) async {
+  await powerSyncDB.writeTransaction((txn) async {
     final updates = data.keys.map((k) => '$k = ?').join(', ');
     final values = [...data.values, id];
 
-    await powerSyncDB.execute(
-      'UPDATE $tableName SET $updates WHERE id = ?',
+    await txn.execute(
+      'UPDATE $table SET $updates WHERE id = ?',
       values,
     );
-    print('✅ Record updated in $tableName');
-  } catch (e) {
-    print('❌ Update error: $e');
-  }
+  });
 }
 
 // ✅ Delete record
-Future<void> deleteRecord(String tableName, String id) async {
-  try {
-    await powerSyncDB.execute(
-      'DELETE FROM $tableName WHERE id = ?',
+Future<void> deleteRecord(String table, String id) async {
+  await powerSyncDB.writeTransaction((txn) async {
+    await txn.execute(
+      'DELETE FROM $table WHERE id = ?',
       [id],
     );
-    print('✅ Record deleted from $tableName');
-  } catch (e) {
-    print('❌ Delete error: $e');
-  }
+  });
 }
 
 // ============================================================================

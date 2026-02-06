@@ -78,11 +78,11 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
     try {
       if (widget.firm == null) {
         // नवीन फर्म जोडा
+        final now = DateTime.now().toIso8601String();
+
         final newFirm = Firm(
           name: _nameController.text.trim(),
-          code: _codeController.text.trim().isNotEmpty
-              ? _codeController.text.trim()
-              : null,
+          code: _codeController.text.trim(),
           owner_name: _ownerNameController.text.trim(),
           phone: _phoneController.text.trim(),
           email: _emailController.text.trim(),
@@ -96,7 +96,8 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
           pan_number: _panController.text.trim().isNotEmpty
               ? _panController.text.trim()
               : null,
-          created_at: DateTime.now().toIso8601String(),
+          created_at: now,
+          updated_at: now, // ✅ REQUIRED
         );
 
         await FirmService.addFirm(newFirm);
@@ -112,9 +113,7 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
         // फर्म update करा
         final updatedFirm = widget.firm!.copyWith(
           name: _nameController.text.trim(),
-          code: _codeController.text.trim().isNotEmpty
-              ? _codeController.text.trim()
-              : null,
+          code: _codeController.text.trim(),
           owner_name: _ownerNameController.text.trim(),
           phone: _phoneController.text.trim(),
           email: _emailController.text.trim(),
@@ -128,6 +127,7 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
           pan_number: _panController.text.trim().isNotEmpty
               ? _panController.text.trim()
               : null,
+          updated_at: DateTime.now().toIso8601String(), // ✅ REQUIRED
         );
 
         await FirmService.updateFirm(updatedFirm);

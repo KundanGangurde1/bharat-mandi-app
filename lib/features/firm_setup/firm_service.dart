@@ -12,7 +12,7 @@ class FirmService {
 
       // ✅ 2. insertRecord void आहे — return expect करू नका
       await insertRecord(tableName, {
-        'id': firmId, // 👈 IMPORTANT
+        'id': firmId,
         'name': firm.name,
         'code': firm.code,
         'owner_name': firm.owner_name,
