@@ -112,7 +112,7 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     try {
       final now = DateTime.now().toIso8601String();
 
-      final produce = {
+      final Map<String, dynamic> produce = {
         'code': code,
         'name': nameCtrl.text.trim(),
         'variety': varietyCtrl.text.trim(),

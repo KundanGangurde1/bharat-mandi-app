@@ -7,8 +7,12 @@ class FirmService {
   // नवीन firm add करा
   static Future<String> addFirm(Firm firm) async {
     try {
-      // PowerSync: insertRecord returns the ID as String
-      final result = await insertRecord(tableName, {
+      // ✅ 1. ID स्वतः generate करा
+      final String firmId = DateTime.now().millisecondsSinceEpoch.toString();
+
+      // ✅ 2. insertRecord void आहे — return expect करू नका
+      await insertRecord(tableName, {
+        'id': firmId, // 👈 IMPORTANT
         'name': firm.name,
         'code': firm.code,
         'owner_name': firm.owner_name,
@@ -25,8 +29,10 @@ class FirmService {
         'updated_at': DateTime.now().toIso8601String(),
       });
 
-      print('✅ Firm added with ID: $result');
-      return result;
+      print('✅ Firm added with ID: $firmId');
+
+      // ✅ 3. String ID return करा
+      return firmId;
     } catch (e) {
       print("❌ Error adding firm: $e");
       rethrow;
