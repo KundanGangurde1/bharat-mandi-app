@@ -16,8 +16,14 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   final amountCtrl = TextEditingController();
   final notesCtrl = TextEditingController();
 
+  // Focus nodes for proper Enter flow
+  late FocusNode buyerCodeFocus;
+  late FocusNode amountFocus;
+  late FocusNode notesFocus;
+
   String selectedPaymentMode = 'cash';
   String buyerName = '';
+  String buyerCode = '';
   double openingBalance = 0.0;
   double remainingBalance = 0.0;
   bool isLoading = false;
@@ -28,6 +34,11 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   @override
   void initState() {
     super.initState();
+    // Initialize focus nodes
+    buyerCodeFocus = FocusNode();
+    amountFocus = FocusNode();
+    notesFocus = FocusNode();
+
     buyerCodeCtrl.addListener(_onBuyerCodeChanged);
     amountCtrl.addListener(_calculateRemainingBalance);
   }
@@ -37,6 +48,9 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
     buyerCodeCtrl.dispose();
     amountCtrl.dispose();
     notesCtrl.dispose();
+    buyerCodeFocus.dispose();
+    amountFocus.dispose();
+    notesFocus.dispose();
     super.dispose();
   }
 
@@ -45,6 +59,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
     if (buyerCodeCtrl.text.isEmpty) {
       setState(() {
         buyerName = '';
+        buyerCode = '';
         openingBalance = 0.0;
         remainingBalance = 0.0;
       });
@@ -62,14 +77,14 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
 
       if (results.isNotEmpty) {
         final buyer = results.first;
-        final buyerCode = buyer['code'] as String? ?? '';
+        final fetchedCode = buyer['code'] as String? ?? '';
         final name = buyer['name'] as String? ?? '';
         final balance = (buyer['opening_balance'] as num?)?.toDouble() ?? 0.0;
 
         // Calculate total payments for this buyer
         final paymentResults = await powerSyncDB.getAll(
           'SELECT SUM(amount) as total FROM payments WHERE buyer_code = ?',
-          [buyerCode],
+          [fetchedCode],
         );
 
         double totalPayments = 0.0;
@@ -79,6 +94,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         }
 
         setState(() {
+          buyerCode = fetchedCode;
           buyerName = name;
           openingBalance = balance;
           remainingBalance = balance - totalPayments;
@@ -86,6 +102,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         });
       } else {
         setState(() {
+          buyerCode = '';
           buyerName = '';
           openingBalance = 0.0;
           remainingBalance = 0.0;
@@ -113,6 +130,10 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
       final amount = double.parse(amountCtrl.text);
       setState(() {
         remainingBalance = openingBalance - amount;
+        // Ensure remaining balance never goes negative
+        if (remainingBalance < 0) {
+          remainingBalance = 0.0;
+        }
         errorMessage = null;
       });
     } catch (e) {
@@ -122,7 +143,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
     }
   }
 
-  /// Save payment to database
+  /// Save payment to database and update buyer balance
   Future<void> _savePayment() async {
     if (buyerCodeCtrl.text.isEmpty) {
       _showSnackBar('कृपया खरीददार कोड दर्ज करें');
@@ -148,19 +169,27 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         throw Exception('Amount must be greater than 0');
       }
 
-      final payment = Payment(
-        id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
-        buyerCode: buyerCodeCtrl.text.trim().toUpperCase(),
-        buyerName: buyerName,
-        amount: amount,
-        paymentMode: selectedPaymentMode,
-        notes: notesCtrl.text.trim(),
-        createdAt: DateTime.now().toIso8601String(),
-        updatedAt: DateTime.now().toIso8601String(),
-      );
+      final now = DateTime.now().toIso8601String();
 
-      // PowerSync: Insert payment
-      await powerSyncDB.insertRecord('payments', payment.toMap());
+      // Step 1: Insert payment record
+      final paymentData = {
+        'buyer_code': buyerCode,
+        'buyer_name': buyerName,
+        'amount': amount,
+        'payment_mode': selectedPaymentMode,
+        'notes': notesCtrl.text.trim(),
+        'created_at': now,
+        'updated_at': now,
+      };
+
+      await insertRecord('payments', paymentData);
+
+      // Step 2: Update buyer's opening_balance (reduce by payment amount)
+      final newBalance = openingBalance - amount;
+      await updateRecord('buyers', buyerCode, {
+        'opening_balance': newBalance,
+        'updated_at': now,
+      });
 
       if (mounted) {
         _showSnackBar(
@@ -175,9 +204,13 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         setState(() {
           selectedPaymentMode = 'cash';
           buyerName = '';
+          buyerCode = '';
           openingBalance = 0.0;
           remainingBalance = 0.0;
         });
+
+        // Focus back to buyer code field for next entry
+        buyerCodeFocus.requestFocus();
       }
     } catch (e) {
       print('❌ Error saving payment: $e');
@@ -216,6 +249,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
               // Buyer Code Input
               TextFormField(
                 controller: buyerCodeCtrl,
+                focusNode: buyerCodeFocus,
                 textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
                   labelText: 'खरीददार कोड',
@@ -233,7 +267,8 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                   return null;
                 },
                 onFieldSubmitted: (_) {
-                  FocusScope.of(context).nextFocus();
+                  // Move to amount field on Enter
+                  FocusScope.of(context).requestFocus(amountFocus);
                 },
               ),
               const SizedBox(height: 16),
@@ -268,6 +303,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
               // Payment Amount Input
               TextFormField(
                 controller: amountCtrl,
+                focusNode: amountFocus,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
@@ -288,7 +324,8 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                   return null;
                 },
                 onFieldSubmitted: (_) {
-                  FocusScope.of(context).nextFocus();
+                  // Move to notes field on Enter
+                  FocusScope.of(context).requestFocus(notesFocus);
                 },
               ),
               const SizedBox(height: 16),
@@ -343,6 +380,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
               // Notes Field
               TextFormField(
                 controller: notesCtrl,
+                focusNode: notesFocus,
                 maxLines: 3,
                 decoration: InputDecoration(
                   labelText: 'टिप्पणी',
