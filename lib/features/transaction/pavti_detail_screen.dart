@@ -218,7 +218,7 @@ class _PavtiDetailScreenState extends State<PavtiDetailScreen> {
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
-                final traderName = entry['trader_name']?.toString() ?? '-';
+                final buyerName = entry['buyer_name']?.toString() ?? '-';
                 final produceName = entry['produce_name']?.toString() ?? '-';
                 final dag = (entry['dag'] as num?)?.toDouble() ?? 0.0;
                 final quantity = (entry['quantity'] as num?)?.toDouble() ?? 0.0;
@@ -261,7 +261,7 @@ class _PavtiDetailScreenState extends State<PavtiDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'व्यापारी: $traderName',
+                                  'व्यापारी: $buyerName',
                                   style: const TextStyle(fontSize: 13),
                                 ),
                                 Text(

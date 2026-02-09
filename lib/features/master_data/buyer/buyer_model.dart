@@ -1,11 +1,11 @@
-class Trader {
+class Buyer {
   final int? id;
   final String name;
   final String code;
   final bool active;
   final String createdAt;
 
-  Trader({
+  Buyer({
     this.id,
     required this.name,
     required this.code,
@@ -23,8 +23,8 @@ class Trader {
     };
   }
 
-  factory Trader.fromMap(Map<String, dynamic> map) {
-    return Trader(
+  factory Buyer.fromMap(Map<String, dynamic> map) {
+    return Buyer(
       id: map['id'],
       name: map['name'],
       code: map['code'],

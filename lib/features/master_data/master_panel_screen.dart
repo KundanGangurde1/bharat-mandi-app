@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'farmer/farmer_list_screen.dart';
-import 'trader/trader_list_screen.dart';
+import 'buyer/buyer_list_screen.dart';
 import 'produce/produce_list_screen.dart';
 import 'expense_type/expense_type_list_screen.dart';
 
@@ -17,7 +17,7 @@ class MasterPanelScreen extends StatelessWidget {
         child: Column(
           children: [
             _tile(context, "🧑‍🌾 Farmers", const FarmerListScreen()),
-            _tile(context, "💼 Traders", const TraderListScreen()),
+            _tile(context, "💼 Buyers", const BuyerListScreen()),
             _tile(context, "🌾 Produce", const ProduceListScreen()),
             _tile(context, "💸 Expenses", const ExpenseTypeListScreen()),
           ],

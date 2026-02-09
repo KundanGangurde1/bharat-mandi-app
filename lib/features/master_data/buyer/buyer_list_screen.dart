@@ -1,42 +1,42 @@
 import 'package:flutter/material.dart';
-import 'trader_form_screen.dart';
+import 'buyer_form_screen.dart';
 import '../../../core/services/powersync_service.dart';
 
-class TraderListScreen extends StatefulWidget {
-  const TraderListScreen({super.key});
+class BuyerListScreen extends StatefulWidget {
+  const BuyerListScreen({super.key});
 
   @override
-  State<TraderListScreen> createState() => _TraderListScreenState();
+  State<BuyerListScreen> createState() => _BuyerListScreenState();
 }
 
-class _TraderListScreenState extends State<TraderListScreen> {
-  List<Map<String, dynamic>> traders = [];
+class _BuyerListScreenState extends State<BuyerListScreen> {
+  List<Map<String, dynamic>> buyers = [];
   bool isLoading = true;
   String searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _loadTraders();
+    _loadBuyers();
   }
 
-  Future<void> _loadTraders() async {
+  Future<void> _loadBuyers() async {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Get all traders ordered by name
+      // PowerSync: Get all buyers ordered by name
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM traders ORDER BY name ASC',
+        'SELECT * FROM buyers ORDER BY name ASC',
       );
 
       setState(() {
-        traders = data;
+        buyers = data;
         isLoading = false;
       });
 
-      print('✅ Loaded ${traders.length} traders');
+      print('✅ Loaded ${buyers.length} buyers');
     } catch (e) {
-      print("❌ Error loading traders: $e");
+      print("❌ Error loading buyers: $e");
       setState(() => isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -46,13 +46,13 @@ class _TraderListScreenState extends State<TraderListScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get filteredTraders {
-    if (searchQuery.isEmpty) return traders;
+  List<Map<String, dynamic>> get filteredBuyers {
+    if (searchQuery.isEmpty) return buyers;
 
-    return traders.where((trader) {
-      final name = trader['name']?.toString().toLowerCase() ?? '';
-      final code = trader['code']?.toString().toLowerCase() ?? '';
-      final firm = trader['firm_name']?.toString().toLowerCase() ?? '';
+    return buyers.where((buyer) {
+      final name = buyer['name']?.toString().toLowerCase() ?? '';
+      final code = buyer['code']?.toString().toLowerCase() ?? '';
+      final firm = buyer['firm_name']?.toString().toLowerCase() ?? '';
       final query = searchQuery.toLowerCase();
 
       return name.contains(query) ||
@@ -73,7 +73,7 @@ class _TraderListScreenState extends State<TraderListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadTraders,
+            onPressed: _loadBuyers,
             tooltip: 'रिफ्रेश',
           ),
         ],
@@ -94,19 +94,19 @@ class _TraderListScreenState extends State<TraderListScreen> {
                 children: [
                   _buildStatItem(
                     'एकूण',
-                    traders.length.toString(),
+                    buyers.length.toString(),
                     Icons.business,
                     Colors.orange,
                   ),
                   _buildStatItem(
                     'सक्रिय',
-                    traders.where((t) => t['active'] == 1).length.toString(),
+                    buyers.where((t) => t['active'] == 1).length.toString(),
                     Icons.check_circle,
                     Colors.green,
                   ),
                   _buildStatItem(
                     'निष्क्रिय',
-                    traders.where((t) => t['active'] == 0).length.toString(),
+                    buyers.where((t) => t['active'] == 0).length.toString(),
                     Icons.remove_circle,
                     Colors.red,
                   ),
@@ -139,18 +139,18 @@ class _TraderListScreenState extends State<TraderListScreen> {
 
           const SizedBox(height: 16),
 
-          // Traders List
+          // buyers List
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : filteredTraders.isEmpty
+                : filteredBuyers.isEmpty
                     ? _buildEmptyState()
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: filteredTraders.length,
+                        itemCount: filteredBuyers.length,
                         itemBuilder: (context, index) {
-                          final trader = filteredTraders[index];
-                          final isActive = trader['active'] == 1;
+                          final buyer = filteredBuyers[index];
+                          final isActive = buyer['active'] == 1;
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -163,7 +163,7 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                 backgroundColor:
                                     isActive ? Colors.orange : Colors.grey,
                                 child: Text(
-                                  trader['code']?.toString().substring(0, 1) ??
+                                  buyer['code']?.toString().substring(0, 1) ??
                                       '?',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -172,7 +172,7 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                 ),
                               ),
                               title: Text(
-                                trader['name']?.toString() ?? '',
+                                buyer['name']?.toString() ?? '',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   decoration: isActive
@@ -184,28 +184,28 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'कोड: ${trader['code']}',
+                                    'कोड: ${buyer['code']}',
                                     style: const TextStyle(fontSize: 12),
                                   ),
-                                  if (trader['firm_name'] != null &&
-                                      trader['firm_name'].toString().isNotEmpty)
+                                  if (buyer['firm_name'] != null &&
+                                      buyer['firm_name'].toString().isNotEmpty)
                                     Text(
-                                      'फर्म: ${trader['firm_name']}',
+                                      'फर्म: ${buyer['firm_name']}',
                                       style: const TextStyle(fontSize: 12),
                                     ),
-                                  if (trader['area'] != null &&
-                                      trader['area'].toString().isNotEmpty)
+                                  if (buyer['area'] != null &&
+                                      buyer['area'].toString().isNotEmpty)
                                     Text(
-                                      'क्षेत्र: ${trader['area']}',
+                                      'क्षेत्र: ${buyer['area']}',
                                       style: const TextStyle(fontSize: 12),
                                     ),
-                                  if (trader['opening_balance'] != 0)
+                                  if (buyer['opening_balance'] != 0)
                                     Text(
-                                      'बॅलन्स: ₹${trader['opening_balance']}',
+                                      'बॅलन्स: ₹${buyer['opening_balance']}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color:
-                                            (trader['opening_balance'] ?? 0) > 0
+                                            (buyer['opening_balance'] ?? 0) > 0
                                                 ? Colors.red
                                                 : Colors.green,
                                       ),
@@ -227,13 +227,13 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                       // PowerSync: Toggle active status
                                       try {
                                         await updateRecord(
-                                          'traders',
-                                          trader['id'] as String,
+                                          'buyers',
+                                          buyer['id'] as String,
                                           {'active': isActive ? 0 : 1},
                                         );
-                                        await _loadTraders();
+                                        await _loadBuyers();
                                       } catch (e) {
-                                        print("❌ Error toggling trader: $e");
+                                        print("❌ Error toggling buyer: $e");
                                         if (mounted) {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
@@ -255,15 +255,14 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                       final result = await Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) =>
-                                              TraderFormScreen(
-                                            traderId: trader['id'] as String,
+                                          builder: (context) => BuyerFormScreen(
+                                            buyerId: buyer['id'] as String,
                                           ),
                                         ),
                                       );
 
                                       if (result == true) {
-                                        await _loadTraders();
+                                        await _loadBuyers();
                                       }
                                     },
                                     tooltip: 'एडिट करा',
@@ -274,14 +273,14 @@ class _TraderListScreenState extends State<TraderListScreen> {
                                 final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => TraderFormScreen(
-                                      traderId: trader['id'] as String,
+                                    builder: (context) => BuyerFormScreen(
+                                      buyerId: buyer['id'] as String,
                                     ),
                                   ),
                                 );
 
                                 if (result == true) {
-                                  await _loadTraders();
+                                  await _loadBuyers();
                                 }
                               },
                             ),
@@ -296,12 +295,12 @@ class _TraderListScreenState extends State<TraderListScreen> {
           final result = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const TraderFormScreen(),
+              builder: (context) => const BuyerFormScreen(),
             ),
           );
 
           if (result == true) {
-            await _loadTraders();
+            await _loadBuyers();
           }
         },
         icon: const Icon(Icons.business_center),

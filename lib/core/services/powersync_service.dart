@@ -21,8 +21,8 @@ final schema = Schema([
     Column.text('updated_at'),
   ]),
 
-  // 2. TRADERS TABLE
-  Table('traders', [
+  // 2. buyerS TABLE
+  Table('buyers', [
     Column.text('code'),
     Column.text('name'),
     Column.text('phone'),
@@ -63,8 +63,8 @@ final schema = Schema([
     Column.integer('parchi_id'),
     Column.text('farmer_code'),
     Column.text('farmer_name'),
-    Column.text('trader_code'),
-    Column.text('trader_name'),
+    Column.text('buyer_code'),
+    Column.text('buyer_name'),
     Column.text('produce_code'),
     Column.text('produce_name'),
     Column.real('dag'),
@@ -74,6 +74,7 @@ final schema = Schema([
     Column.real('total_expense'),
     Column.real('net'),
     Column.text('created_at'),
+    Column.text('updated_at'),
   ]),
 
   // 6. TRANSACTION EXPENSES TABLE
@@ -86,12 +87,13 @@ final schema = Schema([
 
   // 7. PAYMENTS TABLE
   Table('payments', [
-    Column.text('trader_code'),
-    Column.text('trader_name'),
+    Column.text('buyer_code'),
+    Column.text('buyer_name'),
     Column.real('amount'),
     Column.text('payment_mode'),
     Column.text('notes'),
     Column.text('created_at'),
+    Column.text('updated_at'),
   ]),
 
   // 8. AREAS TABLE
@@ -193,7 +195,7 @@ Future<void> clearAllData() async {
     print('🗑️ Clearing all data...');
 
     await powerSyncDB.execute('DELETE FROM farmers');
-    await powerSyncDB.execute('DELETE FROM traders');
+    await powerSyncDB.execute('DELETE FROM buyers');
     await powerSyncDB.execute('DELETE FROM produce');
     await powerSyncDB.execute('DELETE FROM expense_types');
     await powerSyncDB.execute('DELETE FROM transactions');
@@ -213,8 +215,8 @@ Future<Map<String, int>> getDatabaseStats() async {
   try {
     final farmers =
         await powerSyncDB.getAll('SELECT COUNT(*) as count FROM farmers');
-    final traders =
-        await powerSyncDB.getAll('SELECT COUNT(*) as count FROM traders');
+    final buyers =
+        await powerSyncDB.getAll('SELECT COUNT(*) as count FROM buyers');
     final produce =
         await powerSyncDB.getAll('SELECT COUNT(*) as count FROM produce');
     final transactions =
@@ -222,7 +224,7 @@ Future<Map<String, int>> getDatabaseStats() async {
 
     return {
       'farmers': farmers.isNotEmpty ? (farmers[0]['count'] as int) : 0,
-      'traders': traders.isNotEmpty ? (traders[0]['count'] as int) : 0,
+      'buyers': buyers.isNotEmpty ? (buyers[0]['count'] as int) : 0,
       'produce': produce.isNotEmpty ? (produce[0]['count'] as int) : 0,
       'transactions':
           transactions.isNotEmpty ? (transactions[0]['count'] as int) : 0,
@@ -327,7 +329,7 @@ Future<bool> isCodeUnique(String code, String tableName) async {
 // ✅ Check if code is used in transactions
 Future<bool> isCodeUsedInTransaction(String code, String tableName) async {
   try {
-    final columnName = tableName == 'farmers' ? 'farmer_code' : 'trader_code';
+    final columnName = tableName == 'farmers' ? 'farmer_code' : 'buyer_code';
     final results = await powerSyncDB.getAll(
       'SELECT COUNT(*) as count FROM transactions WHERE $columnName = ?',
       [code],
@@ -369,12 +371,12 @@ Future<List<Map<String, dynamic>>> getFarmerDues() async {
   }
 }
 
-// ✅ Get trader recovery report
-Future<List<Map<String, dynamic>>> getTraderRecovery({String? areaId}) async {
+// ✅ Get buyer recovery report
+Future<List<Map<String, dynamic>>> getbuyerRecovery({String? areaId}) async {
   try {
     String query = '''
       SELECT t.code, t.name, t.opening_balance as recovery
-      FROM traders t
+      FROM buyers t
     ''';
 
     if (areaId != null) {
@@ -384,7 +386,7 @@ Future<List<Map<String, dynamic>>> getTraderRecovery({String? areaId}) async {
 
     return await powerSyncDB.getAll(query);
   } catch (e) {
-    print('❌ Error getting trader recovery: $e');
+    print('❌ Error getting buyer recovery: $e');
     return [];
   }
 }
@@ -403,16 +405,16 @@ Future<List<Map<String, dynamic>>> getExpenseTypesForFarmer() async {
   }
 }
 
-// ✅ Get expense types for trader
-Future<List<Map<String, dynamic>>> getExpenseTypesForTrader() async {
+// ✅ Get expense types for buyer
+Future<List<Map<String, dynamic>>> getExpenseTypesForBuyer() async {
   try {
     return await powerSyncDB.getAll('''
       SELECT * FROM expense_types 
-      WHERE apply_on = 'trader' AND active = 1
+      WHERE apply_on = 'buyer' AND active = 1
       ORDER BY name ASC
     ''');
   } catch (e) {
-    print('❌ Error getting trader expense types: $e');
+    print('❌ Error getting buyer expense types: $e');
     return [];
   }
 }

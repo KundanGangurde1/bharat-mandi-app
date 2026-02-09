@@ -83,17 +83,17 @@ class ExpenseController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addToTraderRecovery(String traderCode, double amount) async {
+  Future<void> addToBuyerRecovery(String buyerCode, double amount) async {
     try {
-      // PowerSync: Update trader opening balance
+      // PowerSync: Update buyer opening balance
       await powerSyncDB.execute(
-        'UPDATE traders SET opening_balance = opening_balance + ? WHERE code = ?',
-        [amount, traderCode],
+        'UPDATE buyers SET opening_balance = opening_balance + ? WHERE code = ?',
+        [amount, buyerCode],
       );
 
-      print('✅ Updated trader recovery for $traderCode: +$amount');
+      print('✅ Updated buyer recovery for $buyerCode: +$amount');
     } catch (e) {
-      print("❌ Error updating trader recovery: $e");
+      print("❌ Error updating buyer recovery: $e");
     }
   }
 }

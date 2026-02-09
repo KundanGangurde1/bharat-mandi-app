@@ -14,7 +14,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
   bool isLoading = true;
 
   // For filtering
-  String selectedFilter = 'all'; // 'all', 'farmer', 'trader'
+  String selectedFilter = 'all'; // 'all', 'farmer', 'buyer'
 
   @override
   void initState() {
@@ -169,9 +169,9 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                 const SizedBox(width: 8),
                 FilterChip(
                   label: const Text('व्यापारी'),
-                  selected: selectedFilter == 'trader',
+                  selected: selectedFilter == 'buyer',
                   onSelected: (selected) {
-                    setState(() => selectedFilter = 'trader');
+                    setState(() => selectedFilter = 'buyer');
                     _loadExpenseTypes();
                   },
                 ),

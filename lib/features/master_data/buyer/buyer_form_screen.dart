@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
 
-class TraderFormScreen extends StatefulWidget {
-  final String? traderId;
+class BuyerFormScreen extends StatefulWidget {
+  final String? buyerId;
 
-  const TraderFormScreen({super.key, this.traderId});
+  const BuyerFormScreen({super.key, this.buyerId});
 
   @override
-  State<TraderFormScreen> createState() => _TraderFormScreenState();
+  State<BuyerFormScreen> createState() => _BuyerFormScreenState();
 }
 
-class _TraderFormScreenState extends State<TraderFormScreen> {
+class _BuyerFormScreenState extends State<BuyerFormScreen> {
   final _formKey = GlobalKey<FormState>();
   String? selectedAreaId;
 
@@ -24,50 +24,50 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
   bool isLoading = false;
   bool isEditMode = false;
   bool isCodeUsed = false;
-  Map<String, dynamic>? traderData;
+  Map<String, dynamic>? buyerData;
 
   @override
   void initState() {
     super.initState();
-    isEditMode = widget.traderId != null;
+    isEditMode = widget.buyerId != null;
 
     if (isEditMode) {
-      _loadTraderData();
+      _loadBuyerData();
     } else {
       balanceCtrl.text = '0';
     }
   }
 
-  Future<void> _loadTraderData() async {
+  Future<void> _loadBuyerData() async {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Load trader data
+      // PowerSync: Load buyer data
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM traders WHERE id = ?',
-        [widget.traderId],
+        'SELECT * FROM buyers WHERE id = ?',
+        [widget.buyerId],
       );
 
       if (data.isNotEmpty) {
-        traderData = data.first;
+        buyerData = data.first;
 
-        codeCtrl.text = traderData!['code']?.toString() ?? '';
-        nameCtrl.text = traderData!['name']?.toString() ?? '';
-        phoneCtrl.text = traderData!['phone']?.toString() ?? '';
-        firmCtrl.text = traderData!['firm_name']?.toString() ?? '';
-        areaCtrl.text = traderData!['area']?.toString() ?? '';
-        balanceCtrl.text = traderData!['opening_balance']?.toString() ?? '0';
+        codeCtrl.text = buyerData!['code']?.toString() ?? '';
+        nameCtrl.text = buyerData!['name']?.toString() ?? '';
+        phoneCtrl.text = buyerData!['phone']?.toString() ?? '';
+        firmCtrl.text = buyerData!['firm_name']?.toString() ?? '';
+        areaCtrl.text = buyerData!['area']?.toString() ?? '';
+        balanceCtrl.text = buyerData!['opening_balance']?.toString() ?? '0';
 
         // PowerSync: Check if code is used in transactions
         final isUsed = await isCodeUsedInTransaction(
-            traderData!['code']?.toString() ?? '', 'traders');
+            buyerData!['code']?.toString() ?? '', 'buyers');
 
         setState(() {
           isCodeUsed = isUsed;
         });
       }
     } catch (e) {
-      print("❌ Error loading trader: $e");
+      print("❌ Error loading buyer: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('त्रुटी: $e')),
@@ -78,7 +78,7 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
     }
   }
 
-  Future<void> _saveTrader() async {
+  Future<void> _saveBuyer() async {
     if (!_formKey.currentState!.validate()) return;
 
     final code = codeCtrl.text.trim().toUpperCase();
@@ -93,9 +93,9 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
       return;
     }
 
-    if (!isEditMode || code != traderData?['code']) {
+    if (!isEditMode || code != buyerData?['code']) {
       // PowerSync: Check code uniqueness
-      final isUnique = await isCodeUnique(code, 'traders');
+      final isUnique = await isCodeUnique(code, 'buyers');
       if (!isUnique) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -111,7 +111,7 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
     try {
       final now = DateTime.now().toIso8601String();
 
-      final trader = {
+      final buyer = {
         'code': code,
         'name': nameCtrl.text.trim(),
         'phone': phoneCtrl.text.trim(),
@@ -123,12 +123,12 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
       };
 
       if (isEditMode) {
-        // PowerSync: Update trader
-        await updateRecord('traders', widget.traderId!, trader);
+        // PowerSync: Update buyer
+        await updateRecord('buyers', widget.buyerId!, buyer);
       } else {
-        trader['created_at'] = now;
-        // PowerSync: Insert trader
-        await insertRecord('traders', trader);
+        buyer['created_at'] = now;
+        // PowerSync: Insert buyer
+        await insertRecord('buyers', buyer);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,7 +142,7 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
 
       Navigator.pop(context, true);
     } catch (e) {
-      print("❌ Error saving trader: $e");
+      print("❌ Error saving buyer: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: $e'),
@@ -386,7 +386,7 @@ class _TraderFormScreenState extends State<TraderFormScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: isLoading ? null : _saveTrader,
+                        onPressed: isLoading ? null : _saveBuyer,
                         icon: const Icon(Icons.save),
                         label: Text(
                           isLoading ? 'सेव होत आहे...' : 'सेव करा',

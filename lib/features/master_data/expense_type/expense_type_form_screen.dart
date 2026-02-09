@@ -14,7 +14,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final nameCtrl = TextEditingController();
-  String applyOn = 'farmer'; // 'farmer' or 'trader'
+  String applyOn = 'farmer'; // 'farmer' or 'buyer'
   String calculationType = 'per_dag'; // 'per_dag', 'percentage', 'fixed'
   final defaultValueCtrl = TextEditingController();
   bool active = true;
@@ -210,7 +210,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                         Expanded(
                           child: RadioListTile<String>(
                             title: const Text('व्यापारी'),
-                            value: 'trader',
+                            value: 'buyer',
                             groupValue: applyOn,
                             onChanged: (value) {
                               if (value != null)

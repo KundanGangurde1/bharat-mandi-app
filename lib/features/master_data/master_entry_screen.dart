@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'area/area_master_screen.dart';
 import 'farmer/farmer_list_screen.dart';
-import 'trader/trader_list_screen.dart';
+import 'buyer/buyer_list_screen.dart';
 import 'produce/produce_list_screen.dart';
 import 'expense_type/expense_type_list_screen.dart';
 
@@ -19,9 +19,9 @@ class MasterEntryScreen extends StatelessWidget {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: GridView.count(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
+          crossAxisCount: 4,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
           children: [
             _buildMasterCard(
               icon: Icons.people,
@@ -37,7 +37,7 @@ class MasterEntryScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const TraderListScreen())),
+                      builder: (context) => const BuyerListScreen())),
             ),
             _buildMasterCard(
               icon: Icons.inventory,
@@ -82,7 +82,7 @@ class MasterEntryScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 48, color: Colors.green),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(title,
                 style:
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),

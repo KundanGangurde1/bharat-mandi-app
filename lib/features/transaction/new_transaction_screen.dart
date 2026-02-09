@@ -6,8 +6,8 @@ import '../../core/expense_controller.dart';
 import '../transaction/pavti_list_screen.dart';
 
 class TransactionRow {
-  String traderCode;
-  String traderName;
+  String buyerCode;
+  String buyerName;
   String produceCode;
   String produceName;
   double dag;
@@ -16,8 +16,8 @@ class TransactionRow {
   double total;
 
   TransactionRow({
-    required this.traderCode,
-    required this.traderName,
+    required this.buyerCode,
+    required this.buyerName,
     required this.produceCode,
     required this.produceName,
     required this.dag,
@@ -58,8 +58,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   final farmerNameCtrl = TextEditingController();
   final produceCodeCtrl = TextEditingController();
   final produceNameCtrl = TextEditingController();
-  final traderCodeCtrl = TextEditingController();
-  final traderNameCtrl = TextEditingController();
+  final buyerCodeCtrl = TextEditingController();
+  final buyerNameCtrl = TextEditingController();
   final dagCtrl = TextEditingController();
   final weightCtrl = TextEditingController();
   final rateCtrl = TextEditingController();
@@ -67,7 +67,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   // Focus Nodes
   final farmerCodeFocus = FocusNode();
   final produceCodeFocus = FocusNode();
-  final traderCodeFocus = FocusNode();
+  final buyerCodeFocus = FocusNode();
   final dagFocus = FocusNode();
   final weightFocus = FocusNode();
   final rateFocus = FocusNode();
@@ -134,10 +134,10 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       }
     });
 
-    traderCodeFocus.addListener(() {
-      if (traderCodeFocus.hasFocus) {
-        traderCodeCtrl.selection = TextSelection(
-            baseOffset: 0, extentOffset: traderCodeCtrl.text.length);
+    buyerCodeFocus.addListener(() {
+      if (buyerCodeFocus.hasFocus) {
+        buyerCodeCtrl.selection = TextSelection(
+            baseOffset: 0, extentOffset: buyerCodeCtrl.text.length);
       }
     });
 
@@ -228,36 +228,36 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     }
   }
 
-  Future<void> lookupTrader(String code) async {
+  Future<void> lookupBuyer(String code) async {
     code = code.trim().toUpperCase();
     if (code.isEmpty) {
       setState(() {
-        traderNameCtrl.text = "";
+        buyerNameCtrl.text = "";
       });
       return;
     }
     if (code == "R") {
       setState(() {
-        traderNameCtrl.text = "रोकडा (Cash)";
+        buyerNameCtrl.text = "रोकडा (Cash)";
       });
       return;
     }
     try {
-      // PowerSync: Lookup trader by code
+      // PowerSync: Lookup buyer by code
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM traders WHERE code = ? AND active = 1',
+        'SELECT * FROM buyers WHERE code = ? AND active = 1',
         [code],
       );
 
       setState(() {
         if (data.isEmpty) {
-          traderNameCtrl.text = "";
+          buyerNameCtrl.text = "";
         } else {
-          traderNameCtrl.text = data.first['name'].toString();
+          buyerNameCtrl.text = data.first['name'].toString();
         }
       });
     } catch (e) {
-      print("❌ Trader lookup error: $e");
+      print("❌ Buyer lookup error: $e");
     }
   }
 
@@ -307,11 +307,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
   void _handleProduceCodeEnter() {
     if (produceCodeCtrl.text.isNotEmpty)
-      FocusScope.of(context).requestFocus(traderCodeFocus);
+      FocusScope.of(context).requestFocus(buyerCodeFocus);
   }
 
-  void _handleTraderCodeEnter() {
-    if (traderCodeCtrl.text.isNotEmpty)
+  void _handleBuyerCodeEnter() {
+    if (buyerCodeCtrl.text.isNotEmpty)
       FocusScope.of(context).requestFocus(dagFocus);
   }
 
@@ -331,9 +331,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
   // Add Row
   void _addRow() {
-    if (traderCodeCtrl.text.isEmpty || traderNameCtrl.text.isEmpty) {
+    if (buyerCodeCtrl.text.isEmpty || buyerNameCtrl.text.isEmpty) {
       _showSnackBar("व्यापारी कोड आवश्यक आहे");
-      traderCodeFocus.requestFocus();
+      buyerCodeFocus.requestFocus();
       return;
     }
 
@@ -367,8 +367,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
     setState(() {
       rows.add(TransactionRow(
-        traderCode: traderCodeCtrl.text.trim().toUpperCase(),
-        traderName: traderNameCtrl.text,
+        buyerCode: buyerCodeCtrl.text.trim().toUpperCase(),
+        buyerName: buyerNameCtrl.text,
         produceCode: produceCodeCtrl.text.trim().toUpperCase(),
         produceName: produceNameCtrl.text,
         dag: dag,
@@ -376,8 +376,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         rate: rate,
       ));
 
-      traderCodeCtrl.clear();
-      traderNameCtrl.clear();
+      buyerCodeCtrl.clear();
+      buyerNameCtrl.clear();
       dagCtrl.clear();
       weightCtrl.clear();
       rateCtrl.clear();
@@ -389,7 +389,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     });
 
     produceLocked
-        ? traderCodeFocus.requestFocus()
+        ? buyerCodeFocus.requestFocus()
         : produceCodeFocus.requestFocus();
     _showSnackBar("एंट्री जोडली गेली", isError: false);
   }
@@ -424,8 +424,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           'parchi_id': newBillNo.toString(),
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
           'farmer_name': farmerNameCtrl.text,
-          'trader_code': row.traderCode,
-          'trader_name': row.traderName,
+          'buyer_code': row.buyerCode,
+          'buyer_name': row.buyerName,
           'produce_code': row.produceCode,
           'produce_name': row.produceName,
           'dag': row.dag,
@@ -478,8 +478,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       farmerNameCtrl.clear();
       produceCodeCtrl.clear();
       produceNameCtrl.clear();
-      traderCodeCtrl.clear();
-      traderNameCtrl.clear();
+      buyerCodeCtrl.clear();
+      buyerNameCtrl.clear();
       dagCtrl.clear();
       weightCtrl.clear();
       rateCtrl.clear();
@@ -605,7 +605,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                     rows: rows.map((row) {
                                       return DataRow(
                                         cells: [
-                                          DataCell(Text(row.traderName)),
+                                          DataCell(Text(row.buyerName)),
                                           DataCell(Text(row.produceName)),
                                           DataCell(
                                               Text(row.dag.toStringAsFixed(0))),
@@ -628,7 +628,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                     const SizedBox(height: 8),
                   ],
 
-                  // Produce + Trader in one line (compact)
+                  // Produce + buyer in one line (compact)
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(8),
@@ -669,21 +669,21 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
-                              controller: traderCodeCtrl,
-                              focusNode: traderCodeFocus,
+                              controller: buyerCodeCtrl,
+                              focusNode: buyerCodeFocus,
                               decoration: const InputDecoration(
                                 labelText: 'व्यापारी कोड',
                                 border: OutlineInputBorder(),
                               ),
-                              onChanged: lookupTrader,
-                              onSubmitted: (_) => _handleTraderCodeEnter(),
+                              onChanged: lookupBuyer,
+                              onSubmitted: (_) => _handleBuyerCodeEnter(),
                               textInputAction: TextInputAction.next,
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
-                              controller: traderNameCtrl,
+                              controller: buyerNameCtrl,
                               readOnly: true,
                               decoration: const InputDecoration(
                                 labelText: 'व्यापारी नाव',
@@ -1036,15 +1036,15 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     farmerNameCtrl.dispose();
     produceCodeCtrl.dispose();
     produceNameCtrl.dispose();
-    traderCodeCtrl.dispose();
-    traderNameCtrl.dispose();
+    buyerCodeCtrl.dispose();
+    buyerNameCtrl.dispose();
     dagCtrl.dispose();
     weightCtrl.dispose();
     rateCtrl.dispose();
 
     farmerCodeFocus.dispose();
     produceCodeFocus.dispose();
-    traderCodeFocus.dispose();
+    buyerCodeFocus.dispose();
     dagFocus.dispose();
     weightFocus.dispose();
     rateFocus.dispose();

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../core/services/powersync_service.dart';
 
-class TraderReportScreen extends StatefulWidget {
-  const TraderReportScreen({super.key});
+class BuyerReportScreen extends StatefulWidget {
+  const BuyerReportScreen({super.key});
 
   @override
-  State<TraderReportScreen> createState() => _TraderReportScreenState();
+  State<BuyerReportScreen> createState() => _BuyerReportScreenState();
 }
 
-class _TraderReportScreenState extends State<TraderReportScreen> {
-  List<Map<String, dynamic>> traders = [];
+class _BuyerReportScreenState extends State<BuyerReportScreen> {
+  List<Map<String, dynamic>> buyers = [];
   List<Map<String, dynamic>> areas = [];
   String? selectedAreaId;
   bool isLoading = true;
@@ -32,9 +32,9 @@ class _TraderReportScreenState extends State<TraderReportScreen> {
       setState(() => areas = areaData);
       print('✅ Loaded ${areas.length} areas');
 
-      // PowerSync: Load traders with optional area filter
+      // PowerSync: Load buyers with optional area filter
       String query =
-          'SELECT t.id, t.code, t.name, t.phone, t.opening_balance as balance, a.name as area_name FROM traders t LEFT JOIN areas a ON t.area_id = a.id WHERE t.active = 1';
+          'SELECT t.id, t.code, t.name, t.phone, t.opening_balance as balance, a.name as area_name FROM buyers t LEFT JOIN areas a ON t.area_id = a.id WHERE t.active = 1';
 
       List<dynamic> args = [];
 
@@ -45,16 +45,16 @@ class _TraderReportScreenState extends State<TraderReportScreen> {
 
       query += ' ORDER BY t.name ASC';
 
-      final traderData = await powerSyncDB.getAll(query, args);
+      final buyerData = await powerSyncDB.getAll(query, args);
 
       setState(() {
-        traders = traderData;
+        buyers = buyerData;
         isLoading = false;
       });
 
-      print('✅ Loaded ${traders.length} traders');
+      print('✅ Loaded ${buyers.length} buyers');
     } catch (e) {
-      print("❌ Error loading trader report: $e");
+      print("❌ Error loading buyer report: $e");
       setState(() => isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,9 +113,9 @@ class _TraderReportScreenState extends State<TraderReportScreen> {
                   ),
                 ),
 
-                // Trader List
+                // buyer List
                 Expanded(
-                  child: traders.isEmpty
+                  child: buyers.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -139,18 +139,16 @@ class _TraderReportScreenState extends State<TraderReportScreen> {
                         )
                       : ListView.builder(
                           padding: const EdgeInsets.all(8),
-                          itemCount: traders.length,
+                          itemCount: buyers.length,
                           itemBuilder: (context, index) {
-                            final trader = traders[index];
+                            final buyer = buyers[index];
                             final balance =
-                                (trader['balance'] as num?)?.toDouble() ?? 0.0;
-                            final traderName =
-                                trader['name']?.toString() ?? '-';
-                            final traderCode =
-                                trader['code']?.toString() ?? '-';
-                            final phone = trader['phone']?.toString() ?? 'N/A';
+                                (buyer['balance'] as num?)?.toDouble() ?? 0.0;
+                            final buyerName = buyer['name']?.toString() ?? '-';
+                            final buyerCode = buyer['code']?.toString() ?? '-';
+                            final phone = buyer['phone']?.toString() ?? 'N/A';
                             final areaName =
-                                trader['area_name']?.toString() ?? 'N/A';
+                                buyer['area_name']?.toString() ?? 'N/A';
 
                             final isPositive = balance > 0;
 
@@ -165,8 +163,8 @@ class _TraderReportScreenState extends State<TraderReportScreen> {
                                   backgroundColor:
                                       isPositive ? Colors.green : Colors.red,
                                   child: Text(
-                                    traderName.isNotEmpty
-                                        ? traderName
+                                    buyerName.isNotEmpty
+                                        ? buyerName
                                             .substring(0, 1)
                                             .toUpperCase()
                                         : '?',
@@ -177,7 +175,7 @@ class _TraderReportScreenState extends State<TraderReportScreen> {
                                   ),
                                 ),
                                 title: Text(
-                                  '$traderName ($traderCode)',
+                                  '$buyerName ($buyerCode)',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
@@ -225,7 +223,7 @@ class _TraderReportScreenState extends State<TraderReportScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                          '$traderName च्या व्यवहार तपशील (Coming Soon)'),
+                                          '$buyerName च्या व्यवहार तपशील (Coming Soon)'),
                                     ),
                                   );
                                 },

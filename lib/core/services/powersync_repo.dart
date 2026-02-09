@@ -17,13 +17,13 @@ class PowerSyncRepo {
     );
   }
 
-  static Future<void> insertTrader({
+  static Future<void> insertBuyer({
     required String code,
     required String name,
   }) async {
     await powerSyncDB.execute(
       '''
-      INSERT INTO traders
+      INSERT INTO buyers
       (code, name, active, created_at, updated_at)
       VALUES (?, ?, 1, datetime('now'), datetime('now'))
       ''',
@@ -34,7 +34,7 @@ class PowerSyncRepo {
   static Future<void> insertTransaction({
     required int parchiId,
     required String farmerCode,
-    required String traderCode,
+    required String buyerCode,
     required String produceCode,
     required double quantity,
     required double rate,
@@ -42,11 +42,11 @@ class PowerSyncRepo {
     await powerSyncDB.execute(
       '''
       INSERT INTO transactions
-      (parchi_id, farmer_code, trader_code, produce_code,
+      (parchi_id, farmer_code, buyer_code, produce_code,
        quantity, rate, created_at)
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
       ''',
-      [parchiId, farmerCode, traderCode, produceCode, quantity, rate],
+      [parchiId, farmerCode, buyerCode, produceCode, quantity, rate],
     );
   }
 }

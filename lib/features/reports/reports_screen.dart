@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'farmer_dues_report_screen.dart'; // शेतकरी थकबाकी रिपोर्ट
-import 'trader_recovery_report_screen.dart'; // खरेदीदार थकबाकी रिपोर्ट
+import 'buyer_recovery_report_screen.dart'; // खरेदीदार थकबाकी रिपोर्ट
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
@@ -62,7 +62,7 @@ class ReportsScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                         builder: (context) =>
-                            const TraderRecoveryReportScreen()),
+                            const BuyerRecoveryReportScreen()),
                   );
                 },
               ),

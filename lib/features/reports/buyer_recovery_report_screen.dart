@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../core/services/powersync_service.dart';
 
-class TraderRecoveryReportScreen extends StatefulWidget {
-  const TraderRecoveryReportScreen({super.key});
+class BuyerRecoveryReportScreen extends StatefulWidget {
+  const BuyerRecoveryReportScreen({super.key});
 
   @override
-  State<TraderRecoveryReportScreen> createState() =>
-      _TraderRecoveryReportScreenState();
+  State<BuyerRecoveryReportScreen> createState() =>
+      _BuyerRecoveryReportScreenState();
 }
 
-class _TraderRecoveryReportScreenState
-    extends State<TraderRecoveryReportScreen> {
-  List<Map<String, dynamic>> traders = [];
+class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
+  List<Map<String, dynamic>> buyers = [];
   List<Map<String, dynamic>> areas = [];
   String? selectedAreaId;
   bool isLoading = true;
@@ -20,7 +19,7 @@ class _TraderRecoveryReportScreenState
   void initState() {
     super.initState();
     _loadAreas();
-    _loadTraders();
+    _loadBuyers();
   }
 
   Future<void> _loadAreas() async {
@@ -42,13 +41,13 @@ class _TraderRecoveryReportScreenState
     }
   }
 
-  Future<void> _loadTraders() async {
+  Future<void> _loadBuyers() async {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Calculate trader recovery/receivable
+      // PowerSync: Calculate buyer recovery/receivable
       String query =
-          'SELECT t.id, t.code, t.name, t.opening_balance, a.name as area_name FROM traders t LEFT JOIN areas a ON t.area_id = a.id WHERE t.active = 1';
+          'SELECT t.id, t.code, t.name, t.opening_balance, a.name as area_name FROM buyers t LEFT JOIN areas a ON t.area_id = a.id WHERE t.active = 1';
 
       List<dynamic> params = [];
 
@@ -61,24 +60,24 @@ class _TraderRecoveryReportScreenState
 
       final data = await powerSyncDB.getAll(query, params);
 
-      // Calculate receivable (opening_balance is what trader owes us)
-      final tradersWithRecovery = data.map((trader) {
+      // Calculate receivable (opening_balance is what buyer owes us)
+      final buyersWithRecovery = data.map((buyer) {
         final receivable =
-            (trader['opening_balance'] as num?)?.toDouble() ?? 0.0;
+            (buyer['opening_balance'] as num?)?.toDouble() ?? 0.0;
         return {
-          ...trader,
+          ...buyer,
           'receivable': receivable,
         };
       }).toList();
 
       setState(() {
-        traders = tradersWithRecovery;
+        buyers = buyersWithRecovery;
         isLoading = false;
       });
 
-      print('✅ Loaded ${traders.length} traders');
+      print('✅ Loaded ${buyers.length} buyers');
     } catch (e) {
-      print("❌ Error loading trader recovery: $e");
+      print("❌ Error loading buyer recovery: $e");
       setState(() => isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -98,7 +97,7 @@ class _TraderRecoveryReportScreenState
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadTraders,
+            onPressed: _loadBuyers,
             tooltip: 'रिफ्रेश',
           ),
         ],
@@ -127,7 +126,7 @@ class _TraderRecoveryReportScreenState
                   selectedAreaId = value;
                   isLoading = true;
                 });
-                _loadTraders();
+                _loadBuyers();
               },
             ),
           ),
@@ -135,7 +134,7 @@ class _TraderRecoveryReportScreenState
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : traders.isEmpty
+                : buyers.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -165,15 +164,15 @@ class _TraderRecoveryReportScreenState
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.all(8),
-                        itemCount: traders.length,
+                        itemCount: buyers.length,
                         itemBuilder: (context, index) {
-                          final trader = traders[index];
+                          final buyer = buyers[index];
                           final receivable =
-                              (trader['receivable'] as num?)?.toDouble() ?? 0.0;
-                          final traderName = trader['name']?.toString() ?? '-';
-                          final traderCode = trader['code']?.toString() ?? '-';
+                              (buyer['receivable'] as num?)?.toDouble() ?? 0.0;
+                          final buyerName = buyer['name']?.toString() ?? '-';
+                          final buyerCode = buyer['code']?.toString() ?? '-';
                           final areaName =
-                              trader['area_name']?.toString() ?? 'N/A';
+                              buyer['area_name']?.toString() ?? 'N/A';
 
                           final isReceivable = receivable > 0;
 
@@ -188,8 +187,8 @@ class _TraderRecoveryReportScreenState
                                 backgroundColor:
                                     isReceivable ? Colors.green : Colors.red,
                                 child: Text(
-                                  traderName.isNotEmpty
-                                      ? traderName.substring(0, 1).toUpperCase()
+                                  buyerName.isNotEmpty
+                                      ? buyerName.substring(0, 1).toUpperCase()
                                       : '?',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -198,7 +197,7 @@ class _TraderRecoveryReportScreenState
                                 ),
                               ),
                               title: Text(
-                                '$traderName ($traderCode)',
+                                '$buyerName ($buyerCode)',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
@@ -237,7 +236,7 @@ class _TraderRecoveryReportScreenState
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                        '$traderName च्या व्यवहार तपशील (Coming Soon)'),
+                                        '$buyerName च्या व्यवहार तपशील (Coming Soon)'),
                                   ),
                                 );
                               },
