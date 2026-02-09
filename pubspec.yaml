@@ -10,6 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  share_plus: ^7.0.0
+  pdf: ^3.10.0
+
 
   # ✅ UI & Core
   cupertino_icons: ^1.0.2

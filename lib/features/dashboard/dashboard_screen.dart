@@ -5,6 +5,7 @@ import '../reports/reports_screen.dart'; // अहवाल स्क्री�
 import '../settings/settings_screen.dart';
 import '../transaction/pavti_list_screen.dart';
 import '../firm_setup/firm_setup_screen.dart';
+import '../recovery/payment_entry_screen.dart'; // ✅ जमा एन्ट्री स्क्रीन
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -46,6 +47,18 @@ class DashboardScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                         builder: (context) => const NewTransactionScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.payment),
+                title: const Text('जमा एन्ट्री'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const PaymentEntryScreen()),
                   );
                 },
               ),
@@ -142,12 +155,11 @@ class DashboardScreen extends StatelessWidget {
                     _buildQuickActionCard(
                       icon: Icons.payment,
                       title: 'जमा एन्ट्री',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('जमा एन्ट्री लवकरच उपलब्ध होईल')),
-                        );
-                      },
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const PaymentEntryScreen()),
+                      ),
                     ),
                     _buildQuickActionCard(
                       icon: Icons.category,
