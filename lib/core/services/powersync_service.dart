@@ -372,19 +372,32 @@ Future<List<Map<String, dynamic>>> getFarmerDues() async {
 }
 
 // ✅ Get buyer recovery report
-Future<List<Map<String, dynamic>>> getbuyerRecovery({String? areaId}) async {
+Future<List<Map<String, dynamic>>> getBuyerRecovery({String? areaId}) async {
   try {
     String query = '''
-      SELECT t.code, t.name, t.opening_balance as recovery
+      SELECT 
+        t.code,
+        t.name,
+        t.opening_balance +
+        IFNULL(SUM(tr.net), 0) AS recovery
       FROM buyers t
+      LEFT JOIN transactions tr
+        ON tr.buyer_code = t.code
     ''';
+
+    List<dynamic> params = [];
 
     if (areaId != null) {
       query += ' WHERE t.area_id = ?';
-      return await powerSyncDB.getAll(query, [areaId]);
+      params.add(areaId);
     }
 
-    return await powerSyncDB.getAll(query);
+    query += '''
+      GROUP BY t.code, t.name, t.opening_balance
+      HAVING recovery != 0
+    ''';
+
+    return await powerSyncDB.getAll(query, params);
   } catch (e) {
     print('❌ Error getting buyer recovery: $e');
     return [];

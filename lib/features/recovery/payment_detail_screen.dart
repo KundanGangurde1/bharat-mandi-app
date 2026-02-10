@@ -120,7 +120,7 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
       setState(() => _isLoading = true);
 
       // ✅ Delete payment using correct method
-      await deleteRecord('payments', _payment!.id);
+      await deleteRecord('payments', _payment!.id ?? '');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ जमा हटाया गया')),
@@ -475,7 +475,8 @@ class _PaymentEditScreenState extends State<PaymentEditScreen> {
       );
 
       // ✅ Update payment using correct method
-      await updateRecord('payments', widget.payment.id, updatedPayment.toMap());
+      await updateRecord(
+          'payments', widget.payment.id ?? '', updatedPayment.toMap());
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ जमा अपडेट किया गया')),

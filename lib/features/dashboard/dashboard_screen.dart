@@ -6,6 +6,8 @@ import '../settings/settings_screen.dart';
 import '../transaction/pavti_list_screen.dart';
 import '../firm_setup/firm_setup_screen.dart';
 import '../recovery/payment_entry_screen.dart'; // ✅ जमा एन्ट्री स्क्रीन
+import '../recovery/daily_payment_report_screen.dart'; // ✅ आज का जमा रिपोर्ट
+import '../recovery/payment_list_screen.dart'; // ✅ जमा यादी
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -59,6 +61,30 @@ class DashboardScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                         builder: (context) => const PaymentEntryScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.bar_chart),
+                title: const Text('आज का जमा रिपोर्ट'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const DailyPaymentReportScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.receipt_long),
+                title: const Text('जमा यादी'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const PaymentListScreen()),
                   );
                 },
               ),
@@ -159,6 +185,16 @@ class DashboardScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                             builder: (context) => const PaymentEntryScreen()),
+                      ),
+                    ),
+                    _buildQuickActionCard(
+                      icon: Icons.bar_chart,
+                      title: 'आज का जमा',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const DailyPaymentReportScreen()),
                       ),
                     ),
                     _buildQuickActionCard(

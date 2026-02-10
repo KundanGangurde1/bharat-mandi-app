@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/powersync_service.dart';
 import 'payment_model.dart';
+import 'payment_detail_screen.dart';
 
 class PaymentEntryScreen extends StatefulWidget {
   const PaymentEntryScreen({super.key});
@@ -14,12 +15,10 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   final _formKey = GlobalKey<FormState>();
   final buyerCodeCtrl = TextEditingController();
   final amountCtrl = TextEditingController();
-  final notesCtrl = TextEditingController();
 
   // Focus nodes for proper Enter flow
   late FocusNode buyerCodeFocus;
   late FocusNode amountFocus;
-  late FocusNode notesFocus;
 
   String selectedPaymentMode = 'cash';
   String buyerName = '';
@@ -29,6 +28,11 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   bool isLoading = false;
   String? errorMessage;
 
+  // Navigation state
+  List<Payment> allPayments = [];
+  int currentPaymentIndex = -1;
+  Payment? currentPayment;
+
   final List<String> paymentModes = ['cash', 'bank', 'upi', 'cheque'];
 
   @override
@@ -37,21 +41,129 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
     // Initialize focus nodes
     buyerCodeFocus = FocusNode();
     amountFocus = FocusNode();
-    notesFocus = FocusNode();
 
     buyerCodeCtrl.addListener(_onBuyerCodeChanged);
     amountCtrl.addListener(_calculateRemainingBalance);
+    _loadAllPayments();
   }
 
   @override
   void dispose() {
     buyerCodeCtrl.dispose();
     amountCtrl.dispose();
-    notesCtrl.dispose();
     buyerCodeFocus.dispose();
     amountFocus.dispose();
-    notesFocus.dispose();
     super.dispose();
+  }
+
+  /// Load all payments for navigation
+  Future<void> _loadAllPayments() async {
+    try {
+      final results = await powerSyncDB.getAll(
+        'SELECT * FROM payments ORDER BY created_at DESC',
+        [],
+      );
+
+      setState(() {
+        allPayments = results.map((r) => Payment.fromMap(r)).toList();
+      });
+    } catch (e) {
+      print('❌ Error loading payments: $e');
+    }
+  }
+
+  /// Navigate to previous payment
+  void _previousPayment() {
+    if (currentPaymentIndex > 0) {
+      setState(() {
+        currentPaymentIndex--;
+        currentPayment = allPayments[currentPaymentIndex];
+        _loadPaymentToForm(currentPayment!);
+      });
+    }
+  }
+
+  /// Navigate to next payment
+  void _nextPayment() {
+    if (currentPaymentIndex < allPayments.length - 1) {
+      setState(() {
+        currentPaymentIndex++;
+        currentPayment = allPayments[currentPaymentIndex];
+        _loadPaymentToForm(currentPayment!);
+      });
+    }
+  }
+
+  /// Load payment data into form
+  void _loadPaymentToForm(Payment payment) {
+    buyerCodeCtrl.text = payment.buyer_code;
+    amountCtrl.text = payment.amount.toString();
+    selectedPaymentMode = payment.payment_mode;
+    buyerName = payment.buyer_name;
+    buyerCode = payment.buyer_code;
+    _onBuyerCodeChanged();
+  }
+
+  /// Edit current payment
+  void _editPayment() {
+    if (currentPayment == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentDetailScreen(
+          paymentId: currentPayment!.id ?? '',
+          buyerCode: currentPayment!.buyer_code,
+        ),
+      ),
+    ).then((_) {
+      _loadAllPayments();
+      setState(() {
+        currentPayment = null;
+        currentPaymentIndex = -1;
+        buyerCodeCtrl.clear();
+        amountCtrl.clear();
+      });
+    });
+  }
+
+  /// Delete current payment
+  Future<void> _deletePayment() async {
+    if (currentPayment == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('जमा हटवायचा?'),
+        content: const Text('क्या आप यह जमा हटाना चाहते हैं?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('नाही'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('हो'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await deleteRecord('payments', currentPayment!.id ?? '');
+      _showSnackBar('✅ जमा हटवला गेला', isSuccess: true);
+      _loadAllPayments();
+      setState(() {
+        currentPayment = null;
+        currentPaymentIndex = -1;
+        buyerCodeCtrl.clear();
+        amountCtrl.clear();
+      });
+    } catch (e) {
+      _showSnackBar('त्रुटी: $e', isSuccess: false);
+    }
   }
 
   /// Fetch buyer details when code is entered
@@ -138,7 +250,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
       });
     } catch (e) {
       setState(() {
-        errorMessage = 'Invalid amount';
+        errorMessage = 'अवैध रक्कम';
       });
     }
   }
@@ -151,7 +263,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
     }
 
     if (amountCtrl.text.isEmpty) {
-      _showSnackBar('कृपया जमा राशि दर्ज करें');
+      _showSnackBar('कृपया जमा रक्कम दर्ज करें');
       return;
     }
 
@@ -166,7 +278,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
       final amount = double.parse(amountCtrl.text);
 
       if (amount <= 0) {
-        throw Exception('Amount must be greater than 0');
+        throw Exception('रक्कम 0 से अधिक होनी चाहिए');
       }
 
       final now = DateTime.now().toIso8601String();
@@ -177,19 +289,19 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         'buyer_name': buyerName,
         'amount': amount,
         'payment_mode': selectedPaymentMode,
-        'notes': notesCtrl.text.trim(),
+        'notes': '',
         'created_at': now,
         'updated_at': now,
       };
 
       await insertRecord('payments', paymentData);
 
-      // Step 2: Update buyer's opening_balance (reduce by payment amount)
+      // Step 2: Update buyer's opening_balance using SQL query
       final newBalance = openingBalance - amount;
-      await updateRecord('buyers', buyerCode, {
-        'opening_balance': newBalance,
-        'updated_at': now,
-      });
+      await powerSyncDB.execute(
+        'UPDATE buyers SET opening_balance = ?, updated_at = ? WHERE code = ?',
+        [newBalance, now, buyerCode],
+      );
 
       if (mounted) {
         _showSnackBar(
@@ -200,14 +312,18 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         // Clear form for next entry
         buyerCodeCtrl.clear();
         amountCtrl.clear();
-        notesCtrl.clear();
         setState(() {
           selectedPaymentMode = 'cash';
           buyerName = '';
           buyerCode = '';
           openingBalance = 0.0;
           remainingBalance = 0.0;
+          currentPayment = null;
+          currentPaymentIndex = -1;
         });
+
+        // Reload payments for navigation
+        _loadAllPayments();
 
         // Focus back to buyer code field for next entry
         buyerCodeFocus.requestFocus();
@@ -238,6 +354,8 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
       appBar: AppBar(
         title: const Text('जमा एन्ट्री'),
         elevation: 0,
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -307,7 +425,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  labelText: 'जमा राशि',
+                  labelText: 'जमा रक्कम',
                   hintText: '0.00',
                   prefixIcon: const Icon(Icons.currency_rupee),
                   border: OutlineInputBorder(
@@ -316,16 +434,18 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'जमा राशि आवश्यक है';
+                    return 'जमा रक्कम आवश्यक है';
                   }
                   if (double.tryParse(value) == null) {
-                    return 'वैध राशि दर्ज करें';
+                    return 'वैध रक्कम दर्ज करें';
                   }
                   return null;
                 },
                 onFieldSubmitted: (_) {
-                  // Move to notes field on Enter
-                  FocusScope.of(context).requestFocus(notesFocus);
+                  // On Enter, submit the form
+                  if (_formKey.currentState!.validate()) {
+                    _savePayment();
+                  }
                 },
               ),
               const SizedBox(height: 16),
@@ -375,22 +495,42 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
-
-              // Notes Field
-              TextFormField(
-                controller: notesCtrl,
-                focusNode: notesFocus,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'टिप्पणी',
-                  hintText: 'कोई अतिरिक्त जानकारी...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
               const SizedBox(height: 24),
+
+              // Navigation Buttons (Previous/Next)
+              if (allPayments.isNotEmpty)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed:
+                          currentPaymentIndex > 0 ? _previousPayment : null,
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('← मागिल'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                    if (currentPayment != null)
+                      Text(
+                        '${currentPaymentIndex + 1}/${allPayments.length}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ElevatedButton.icon(
+                      onPressed: currentPaymentIndex < allPayments.length - 1
+                          ? _nextPayment
+                          : null,
+                      icon: const Icon(Icons.arrow_forward),
+                      label: const Text('पुढील →'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 16),
 
               // Save Button
               SizedBox(
@@ -399,22 +539,74 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                   onPressed: isLoading ? null : _savePayment,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
                   ),
                   child: isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
                         )
-                      : const Text('जमा करें'),
+                      : const Text('जमा करा'),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Action Buttons (Edit/Share/Delete) - Only show if payment is loaded
+              if (currentPayment != null)
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _editPayment,
+                        icon: const Icon(Icons.edit),
+                        label: const Text('संपादित करा'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _showSnackBar('PDF तैयार किया जा रहा है...');
+                        },
+                        icon: const Icon(Icons.share),
+                        label: const Text('शेयर करा'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              if (currentPayment != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _deletePayment,
+                    icon: const Icon(Icons.delete),
+                    label: const Text('हटवा'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
 
               // Info Text
               Center(
                 child: Text(
-                  'Enter दबाकर अगले field में जाएं\nSave के बाद नया entry के लिए ready होगा',
+                  'Enter दबाकर अगले field मध्ये जा\nAmount नंतर Enter ने Save होईल',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
