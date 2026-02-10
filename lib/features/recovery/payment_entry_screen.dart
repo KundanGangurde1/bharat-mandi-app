@@ -181,48 +181,33 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
     try {
       final code = buyerCodeCtrl.text.trim().toUpperCase();
 
-      // PowerSync: Query buyers table
-      final results = await powerSyncDB.getAll(
-        'SELECT * FROM buyers WHERE code = ? AND active = 1',
+      final buyerRes = await powerSyncDB.getAll(
+        'SELECT name FROM buyers WHERE code = ? AND active = 1',
         [code],
       );
 
-      if (results.isNotEmpty) {
-        final buyer = results.first;
-        final fetchedCode = buyer['code'] as String? ?? '';
-        final name = buyer['name'] as String? ?? '';
-        final balance = (buyer['opening_balance'] as num?)?.toDouble() ?? 0.0;
-
-        // Calculate total payments for this buyer
-        final paymentResults = await powerSyncDB.getAll(
-          'SELECT SUM(amount) as total FROM payments WHERE buyer_code = ?',
-          [fetchedCode],
-        );
-
-        double totalPayments = 0.0;
-        if (paymentResults.isNotEmpty &&
-            paymentResults.first['total'] != null) {
-          totalPayments = (paymentResults.first['total'] as num).toDouble();
-        }
-
+      if (buyerRes.isEmpty) {
         setState(() {
-          buyerCode = fetchedCode;
-          buyerName = name;
-          openingBalance = balance;
-          remainingBalance = balance - totalPayments;
-          errorMessage = null;
-        });
-      } else {
-        setState(() {
-          buyerCode = '';
           buyerName = '';
+          buyerCode = '';
           openingBalance = 0.0;
           remainingBalance = 0.0;
           errorMessage = 'खरीददार नहीं मिला';
         });
+        return;
       }
+
+      final balance = await getBuyerCurrentBalance(code);
+
+      setState(() {
+        buyerCode = code;
+        buyerName = buyerRes.first['name'];
+        openingBalance = balance;
+        remainingBalance = balance;
+        errorMessage = null;
+      });
     } catch (e) {
-      print('❌ Error fetching buyer: $e');
+      print('❌ Error fetching buyer balance: $e');
       setState(() {
         errorMessage = 'त्रुटी: $e';
       });
@@ -231,28 +216,12 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
 
   /// Calculate remaining balance in real-time
   void _calculateRemainingBalance() {
-    if (amountCtrl.text.isEmpty) {
-      setState(() {
-        remainingBalance = openingBalance;
-      });
-      return;
-    }
+    final entered = double.tryParse(amountCtrl.text) ?? 0.0;
 
-    try {
-      final amount = double.parse(amountCtrl.text);
-      setState(() {
-        remainingBalance = openingBalance - amount;
-        // Ensure remaining balance never goes negative
-        if (remainingBalance < 0) {
-          remainingBalance = 0.0;
-        }
-        errorMessage = null;
-      });
-    } catch (e) {
-      setState(() {
-        errorMessage = 'अवैध रक्कम';
-      });
-    }
+    setState(() {
+      remainingBalance = openingBalance - entered;
+      if (remainingBalance < 0) remainingBalance = 0.0;
+    });
   }
 
   /// Save payment to database and update buyer balance
@@ -284,7 +253,8 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
       final now = DateTime.now().toIso8601String();
 
       // Step 1: Insert payment record
-      final paymentData = {
+      // Step 1: Insert payment record
+      await insertRecord('payments', {
         'buyer_code': buyerCode,
         'buyer_name': buyerName,
         'amount': amount,
@@ -292,16 +262,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         'notes': '',
         'created_at': now,
         'updated_at': now,
-      };
-
-      await insertRecord('payments', paymentData);
-
-      // Step 2: Update buyer's opening_balance using SQL query
-      final newBalance = openingBalance - amount;
-      await powerSyncDB.execute(
-        'UPDATE buyers SET opening_balance = ?, updated_at = ? WHERE code = ?',
-        [newBalance, now, buyerCode],
-      );
+      });
 
       if (mounted) {
         _showSnackBar(

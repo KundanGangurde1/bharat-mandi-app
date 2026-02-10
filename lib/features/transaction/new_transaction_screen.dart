@@ -299,6 +299,118 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
   double get netTotal => totalAmount - totalExpense;
 
+  // ================= BUYER CALCULATION HELPERS =================
+
+  double buyerGross(String buyerCode) {
+    return rows
+        .where((r) => r.buyerCode == buyerCode)
+        .fold(0.0, (sum, r) => sum + r.total);
+  }
+
+  double buyerTotalDag(String buyerCode) {
+    return rows
+        .where((r) => r.buyerCode == buyerCode)
+        .fold(0.0, (sum, r) => sum + r.dag);
+  }
+
+  double buyerTotalWeight(String buyerCode) {
+    return rows
+        .where((r) => r.buyerCode == buyerCode)
+        .fold(0.0, (sum, r) => sum + r.weight);
+  }
+
+  double buyerExpense(String buyerCode) {
+    if (!expenseExpanded) return 0;
+
+    final gross = buyerGross(buyerCode);
+    final totalDag = buyerTotalDag(buyerCode);
+    final totalWeight = buyerTotalWeight(buyerCode);
+
+    double sum = 0;
+
+    for (var exp in expenseItems.where((e) => e.applyOn == 'buyer')) {
+      final entered = double.tryParse(exp.controller.text) ?? exp.defaultValue;
+      if (entered <= 0) continue;
+
+      switch (exp.calculationType) {
+        case 'percentage':
+          sum += gross * (entered / 100);
+          break;
+
+        case 'per_dag':
+          sum += totalDag * entered;
+          break;
+
+        case 'per_unit':
+          sum += totalWeight * entered;
+          break;
+
+        case 'fixed':
+          sum += entered;
+          break;
+      }
+    }
+
+    return sum;
+  }
+
+  // ================= BUYER / FARMER SPLIT =================
+
+  double get totalFarmerExpense {
+    if (!expenseExpanded || expenseItems.isEmpty) return 0;
+
+    double sum = 0;
+    double totalDag = rows.fold(0, (s, r) => s + r.dag);
+    double totalAmt = totalAmount;
+
+    for (var exp in expenseItems.where((e) => e.applyOn == 'farmer')) {
+      final entered = double.tryParse(exp.controller.text) ?? exp.defaultValue;
+      if (entered <= 0) continue;
+
+      switch (exp.calculationType) {
+        case 'per_dag':
+          sum += totalDag * entered;
+          break;
+        case 'percentage':
+          sum += totalAmt * (entered / 100);
+          break;
+        case 'fixed':
+          sum += entered;
+          break;
+      }
+    }
+    return sum;
+  }
+
+  double get totalBuyerExpense {
+    if (!expenseExpanded || expenseItems.isEmpty) return 0;
+
+    double sum = 0;
+    double totalDag = rows.fold(0, (s, r) => s + r.dag);
+    double totalAmt = totalAmount;
+
+    for (var exp in expenseItems.where((e) => e.applyOn == 'buyer')) {
+      final entered = double.tryParse(exp.controller.text) ?? exp.defaultValue;
+      if (entered <= 0) continue;
+
+      switch (exp.calculationType) {
+        case 'per_dag':
+          sum += totalDag * entered;
+          break;
+        case 'percentage':
+          sum += totalAmt * (entered / 100);
+          break;
+        case 'fixed':
+          sum += entered;
+          break;
+      }
+    }
+    return sum;
+  }
+
+  double get farmerNet => totalAmount - totalFarmerExpense;
+  double get buyerNet => totalAmount + totalBuyerExpense;
+
   // Keyboard Flow
   void _handleFarmerCodeEnter() {
     if (farmerCodeCtrl.text.isNotEmpty)
@@ -420,6 +532,42 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       for (int i = 0; i < rows.length; i++) {
         final row = rows[i];
 
+        // -------- BUYER EXPENSE CALCULATION (INLINE) --------
+        double buyerExpense = 0;
+
+        double buyerDag = row.dag;
+        double buyerQty = row.weight;
+        double buyerGross = row.total;
+
+        for (var exp in expenseItems) {
+          if (exp.applyOn != 'buyer') continue;
+
+          final entered =
+              double.tryParse(exp.controller.text) ?? exp.defaultValue;
+          if (entered <= 0) continue;
+
+          double calc = 0;
+
+          switch (exp.calculationType) {
+            case 'per_dag':
+              calc = buyerDag * entered;
+              break;
+            case 'per_unit':
+              calc = buyerQty * entered;
+              break;
+            case 'fixed':
+              calc = entered;
+              break;
+            case 'percentage':
+              calc = buyerGross * (entered / 100);
+              break;
+          }
+
+          buyerExpense += calc;
+        }
+
+        final buyerNet = buyerGross + buyerExpense;
+
         await insertRecord('transactions', {
           'parchi_id': newBillNo.toString(),
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
@@ -431,9 +579,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           'dag': row.dag,
           'quantity': row.weight,
           'rate': row.rate,
-          'gross': row.total,
-          'total_expense': totalExpense,
-          'net': netTotal,
+          'gross': buyerGross,
+          'total_expense': buyerExpense,
+          'net': buyerNet,
           'created_at': selectedDate.toIso8601String(),
           'updated_at': now,
         });
@@ -804,7 +952,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                   child:
                                       Text('कोणतेही खर्च प्रकार उपलब्ध नाहीत')),
                             ...expenseItems
-                                .where((exp) => exp.applyOn == 'farmer')
+                                .where((exp) =>
+                                    exp.applyOn == 'farmer' ||
+                                    exp.applyOn == 'buyer')
                                 .map((exp) {
                               final enteredValue =
                                   double.tryParse(exp.controller.text) ??

@@ -372,35 +372,130 @@ Future<List<Map<String, dynamic>>> getFarmerDues() async {
 }
 
 // ✅ Get buyer recovery report
+// ✅ BUYER RECOVERY / BALANCE (SINGLE SOURCE OF TRUTH)
 Future<List<Map<String, dynamic>>> getBuyerRecovery({String? areaId}) async {
   try {
     String query = '''
       SELECT 
-        t.code,
-        t.name,
-        t.opening_balance +
-        IFNULL(SUM(tr.net), 0) AS recovery
-      FROM buyers t
-      LEFT JOIN transactions tr
-        ON tr.buyer_code = t.code
+        b.id,
+        b.code,
+        b.name,
+        b.phone,
+        a.name AS area_name,
+
+        (
+          b.opening_balance
+          + IFNULL(SUM(DISTINCT t.net), 0)
+          - IFNULL(SUM(DISTINCT p.amount), 0)
+        ) AS balance
+
+      FROM buyers b
+      LEFT JOIN transactions t
+        ON t.buyer_code = b.code
+      LEFT JOIN payments p
+        ON p.buyer_code = b.code
+      LEFT JOIN areas a
+        ON a.id = b.area_id
+
+      WHERE b.active = 1
     ''';
 
     List<dynamic> params = [];
 
-    if (areaId != null) {
-      query += ' WHERE t.area_id = ?';
+    if (areaId != null && areaId.isNotEmpty) {
+      query += ' AND b.area_id = ?';
       params.add(areaId);
     }
 
     query += '''
-      GROUP BY t.code, t.name, t.opening_balance
-      HAVING recovery != 0
+      GROUP BY 
+        b.id, b.code, b.name, b.phone, b.opening_balance, a.name
+      HAVING balance != 0
+      ORDER BY b.name ASC
     ''';
 
     return await powerSyncDB.getAll(query, params);
   } catch (e) {
-    print('❌ Error getting buyer recovery: $e');
+    print('❌ Error calculating buyer recovery: $e');
     return [];
+  }
+}
+
+Future<List<Map<String, dynamic>>> getBuyerLedger(String buyerCode) async {
+  try {
+    final query = '''
+      SELECT 
+        created_at AS date,
+        'PARCHI' AS type,
+        parchi_id AS ref_no,
+        net AS debit,
+        0 AS credit
+      FROM transactions
+      WHERE buyer_code = ?
+
+      UNION ALL
+
+      SELECT
+        created_at AS date,
+        'PAYMENT' AS type,
+        '' AS ref_no,
+        0 AS debit,
+        amount AS credit
+      FROM payments
+      WHERE buyer_code = ?
+
+      ORDER BY date ASC
+    ''';
+
+    return await powerSyncDB.getAll(query, [buyerCode, buyerCode]);
+  } catch (e) {
+    print('❌ Ledger error: $e');
+    return [];
+  }
+}
+
+// ✅ SINGLE BUYER CURRENT BALANCE (FOR PAYMENT SCREEN)
+Future<double> getBuyerCurrentBalance(String buyerCode) async {
+  try {
+    // 1️⃣ Opening balance
+    final buyerRes = await powerSyncDB.getAll(
+      'SELECT opening_balance FROM buyers WHERE code = ?',
+      [buyerCode],
+    );
+
+    final opening =
+        (buyerRes.isNotEmpty ? buyerRes.first['opening_balance'] : 0) as num? ??
+            0;
+
+    // 2️⃣ Total purchases (transactions net)
+    final txnRes = await powerSyncDB.getAll(
+      '''
+      SELECT IFNULL(SUM(net), 0) AS total
+      FROM transactions
+      WHERE buyer_code = ?
+      ''',
+      [buyerCode],
+    );
+
+    final purchases = (txnRes.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    // 3️⃣ Total payments
+    final payRes = await powerSyncDB.getAll(
+      '''
+      SELECT IFNULL(SUM(amount), 0) AS total
+      FROM payments
+      WHERE buyer_code = ?
+      ''',
+      [buyerCode],
+    );
+
+    final paid = (payRes.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    // ✅ FINAL BALANCE
+    return opening + purchases - paid;
+  } catch (e) {
+    print('❌ Buyer balance calc error: $e');
+    return 0.0;
   }
 }
 
