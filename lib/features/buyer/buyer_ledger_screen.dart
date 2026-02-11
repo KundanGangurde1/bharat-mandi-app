@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/services/powersync_service.dart';
 import '../../features/buyer/buyer_ledger_pdf.dart';
 
@@ -69,7 +72,6 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
           (buyerRes.first['opening_balance'] as num?)?.toDouble() ?? 0.0;
 
       String dateFilter = '';
-
       List<dynamic> txnParams = [widget.buyerCode];
       List<dynamic> payParams = [widget.buyerCode];
 
@@ -87,71 +89,92 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
         payParams.add(d);
       }
 
-      final transactions = await powerSyncDB.getAll(
-        '''
-      SELECT 
-        created_at AS date,
-        'पावती' AS type,
-        parchi_id AS ref,
-        net AS amount
-      FROM transactions
-      WHERE buyer_code = ?
-      $dateFilter
-      ''',
-        txnParams,
-      );
+      // 🔥 PREVIOUS BALANCE (Before From Date)
+      double previousBalance = openingBalance;
 
-      final payments = await powerSyncDB.getAll(
-        '''
-      SELECT 
-        created_at AS date,
-        'जमा' AS type,
-        'जमा (' || payment_mode || ')' AS ref,
-        amount AS amount
-      FROM payments
-      WHERE buyer_code = ?
-      $dateFilter
-      ''',
-        payParams,
-      );
+      if (fromDate != null) {
+        final d = DateFormat('yyyy-MM-dd').format(fromDate!);
+
+        final prevTxn = await powerSyncDB.getAll('''
+          SELECT SUM(net) as total
+          FROM transactions
+          WHERE buyer_code = ?
+          AND date(created_at) < date(?)
+        ''', [widget.buyerCode, d]);
+
+        final prevPay = await powerSyncDB.getAll('''
+          SELECT SUM(amount) as total
+          FROM payments
+          WHERE buyer_code = ?
+          AND date(created_at) < date(?)
+        ''', [widget.buyerCode, d]);
+
+        final txnTotal = (prevTxn.first['total'] as num?)?.toDouble() ?? 0.0;
+        final payTotal = (prevPay.first['total'] as num?)?.toDouble() ?? 0.0;
+
+        previousBalance += txnTotal;
+        previousBalance -= payTotal;
+      }
+
+      final transactions = await powerSyncDB.getAll('''
+        SELECT 
+          created_at AS date,
+          'पावती' AS type,
+          parchi_id AS ref,
+          net AS amount
+        FROM transactions
+        WHERE buyer_code = ?
+        $dateFilter
+      ''', txnParams);
+
+      final payments = await powerSyncDB.getAll('''
+        SELECT 
+          created_at AS date,
+          'जमा' AS type,
+          'जमा (' || payment_mode || ')' AS ref,
+          amount AS amount
+        FROM payments
+        WHERE buyer_code = ?
+        $dateFilter
+      ''', payParams);
 
       final all = [...transactions, ...payments];
 
       all.sort((a, b) =>
           DateTime.parse(a['date']).compareTo(DateTime.parse(b['date'])));
 
-      double runningBalance = openingBalance;
+      double runningBalance = previousBalance;
       final result = <Map<String, dynamic>>[];
 
       result.add({
         'date': null,
-        'type': 'Opening Balance',
+        'type': fromDate != null ? 'Previous Balance' : 'Opening Balance',
         'ref': '',
-        'debit': 0.0,
-        'credit': 0.0,
+        'jama': 0.0,
+        'udhari': 0.0,
         'balance': runningBalance,
       });
 
       for (final row in all) {
         final amount = (row['amount'] as num).toDouble();
 
-        double debit = 0.0;
-        double credit = 0.0;
+        double jama = 0.0;
+        double udhari = 0.0;
 
         if (row['type'] == 'पावती') {
-          debit = amount;
-          runningBalance += debit;
+          udhari = amount;
+          runningBalance += udhari;
         } else {
-          credit = amount;
-          runningBalance -= credit;
+          jama = amount;
+          runningBalance -= jama;
         }
 
         result.add({
           'date': row['date'],
           'type': row['type'],
           'ref': row['ref'],
-          'debit': debit,
-          'credit': credit,
+          'jama': jama,
+          'udhari': udhari,
           'balance': runningBalance,
         });
       }
@@ -166,6 +189,22 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
     }
   }
 
+  Future<void> _shareLedger() async {
+    final file = await BuyerLedgerPdf.generateFile(
+      firmName: 'Bharat Mandi',
+      buyerName: widget.buyerName,
+      buyerCode: widget.buyerCode,
+      fromDate: fromDate,
+      toDate: toDate,
+      ledger: ledger,
+    );
+
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      text: 'Buyer Ledger – ${widget.buyerName}',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -177,7 +216,7 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             onPressed: () {
-              BuyerLedgerPdf.generate(
+              BuyerLedgerPdf.generatePreview(
                 firmName: 'Bharat Mandi',
                 buyerName: widget.buyerName,
                 buyerCode: widget.buyerCode,
@@ -187,11 +226,14 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: _shareLedger,
+          ),
         ],
       ),
       body: Column(
         children: [
-          // 🔹 Date Filter Bar
           Padding(
             padding: const EdgeInsets.all(8),
             child: Row(
@@ -222,7 +264,6 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
               ],
             ),
           ),
-
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -235,8 +276,8 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
                             DataColumn(label: Text('दिनांक')),
                             DataColumn(label: Text('तपशील')),
                             DataColumn(label: Text('Ref')),
-                            DataColumn(label: Text('डेबिट')),
-                            DataColumn(label: Text('क्रेडिट')),
+                            DataColumn(label: Text('उधारी')),
+                            DataColumn(label: Text('जमा')),
                             DataColumn(label: Text('शिल्लक')),
                           ],
                           rows: ledger.map((row) {
@@ -251,13 +292,13 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
                               DataCell(Text(row['type'])),
                               DataCell(Text(row['ref'].toString())),
                               DataCell(Text(
-                                row['debit'] > 0
-                                    ? '₹${row['debit'].toStringAsFixed(2)}'
+                                row['udhari'] > 0
+                                    ? '₹${row['udhari'].toStringAsFixed(2)}'
                                     : '',
                               )),
                               DataCell(Text(
-                                row['credit'] > 0
-                                    ? '₹${row['credit'].toStringAsFixed(2)}'
+                                row['jama'] > 0
+                                    ? '₹${row['jama'].toStringAsFixed(2)}'
                                     : '',
                               )),
                               DataCell(Text(
