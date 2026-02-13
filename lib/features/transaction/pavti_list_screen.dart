@@ -26,16 +26,17 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     try {
       // PowerSync: Get distinct transactions grouped by parchi_id
       final data = await powerSyncDB.getAll('''
-        SELECT DISTINCT 
-          parchi_id, 
-          created_at, 
-          farmer_name, 
-          farmer_code,
-          total_expense, 
-          net
-        FROM transactions
-        ORDER BY created_at DESC
-      ''');
+  SELECT 
+    parchi_id,
+    MAX(created_at) as created_at,
+    farmer_name,
+    farmer_code,
+    SUM(total_expense) as total_expense,
+    SUM(net) as net
+  FROM transactions
+  GROUP BY parchi_id, farmer_name, farmer_code
+  ORDER BY parchi_id DESC
+''');
 
       setState(() {
         pavtis = data;

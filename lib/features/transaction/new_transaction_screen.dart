@@ -46,13 +46,22 @@ class ExpenseItem {
 }
 
 class NewTransactionScreen extends StatefulWidget {
-  const NewTransactionScreen({super.key});
+  final String? parchiId;
+  final bool isEdit;
+
+  const NewTransactionScreen({
+    super.key,
+    this.parchiId,
+    this.isEdit = false,
+  });
 
   @override
   State<NewTransactionScreen> createState() => _NewTransactionScreenState();
 }
 
 class _NewTransactionScreenState extends State<NewTransactionScreen> {
+  int? editingIndex;
+
   // Controllers
   final farmerCodeCtrl = TextEditingController();
   final farmerNameCtrl = TextEditingController();
@@ -86,6 +95,10 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     super.initState();
     _setupKeyboardFlow();
     _loadExpenseTypes();
+
+    if (widget.isEdit && widget.parchiId != null) {
+      _loadExistingPavti();
+    }
   }
 
   Future<void> _loadExpenseTypes() async {
@@ -478,15 +491,28 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     }
 
     setState(() {
-      rows.add(TransactionRow(
-        buyerCode: buyerCodeCtrl.text.trim().toUpperCase(),
-        buyerName: buyerNameCtrl.text,
-        produceCode: produceCodeCtrl.text.trim().toUpperCase(),
-        produceName: produceNameCtrl.text,
-        dag: dag,
-        weight: weight,
-        rate: rate,
-      ));
+      if (editingIndex != null) {
+        rows[editingIndex!] = TransactionRow(
+          buyerCode: buyerCodeCtrl.text.trim().toUpperCase(),
+          buyerName: buyerNameCtrl.text,
+          produceCode: produceCodeCtrl.text.trim().toUpperCase(),
+          produceName: produceNameCtrl.text,
+          dag: dag,
+          weight: weight,
+          rate: rate,
+        );
+        editingIndex = null;
+      } else {
+        rows.add(TransactionRow(
+          buyerCode: buyerCodeCtrl.text.trim().toUpperCase(),
+          buyerName: buyerNameCtrl.text,
+          produceCode: produceCodeCtrl.text.trim().toUpperCase(),
+          produceName: produceNameCtrl.text,
+          dag: dag,
+          weight: weight,
+          rate: rate,
+        ));
+      }
 
       buyerCodeCtrl.clear();
       buyerNameCtrl.clear();
@@ -506,6 +532,22 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     _showSnackBar("एंट्री जोडली गेली", isError: false);
   }
 
+  void _editRow(int index) {
+    final row = rows[index];
+
+    setState(() {
+      editingIndex = index;
+
+      buyerCodeCtrl.text = row.buyerCode;
+      buyerNameCtrl.text = row.buyerName;
+      produceCodeCtrl.text = row.produceCode;
+      produceNameCtrl.text = row.produceName;
+      dagCtrl.text = row.dag.toString();
+      weightCtrl.text = row.weight.toString();
+      rateCtrl.text = row.rate.toString();
+    });
+  }
+
   // Save Transaction
   Future<void> _saveTransaction() async {
     if (rows.isEmpty) {
@@ -514,25 +556,46 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     }
 
     try {
-      // PowerSync: Get next parchi_id
-      final lastParchi = await powerSyncDB.getAll(
-        'SELECT MAX(CAST(parchi_id AS INTEGER)) as max_id FROM transactions',
-      );
+      String parchiId;
 
-      int newBillNo = 1;
-      if (lastParchi.isNotEmpty && lastParchi.first['max_id'] != null) {
-        newBillNo = (lastParchi.first['max_id'] as int) + 1;
+      // ================= EDIT MODE =================
+      if (widget.isEdit && widget.parchiId != null) {
+        parchiId = widget.parchiId!;
+
+        // 🔥 Delete old transactions
+        await powerSyncDB.execute(
+          'DELETE FROM transactions WHERE parchi_id = ?',
+          [parchiId],
+        );
+
+        await powerSyncDB.execute(
+          'DELETE FROM transaction_expenses WHERE parchi_id = ?',
+          [parchiId],
+        );
+
+        print("✏️ Editing Existing Pavti: $parchiId");
+      } else {
+        // ================= NEW MODE =================
+        final lastParchi = await powerSyncDB.getAll(
+          'SELECT MAX(CAST(parchi_id AS INTEGER)) as max_id FROM transactions',
+        );
+
+        int newBillNo = 1;
+        if (lastParchi.isNotEmpty && lastParchi.first['max_id'] != null) {
+          newBillNo = (lastParchi.first['max_id'] as int) + 1;
+        }
+
+        parchiId = newBillNo.toString();
+
+        print("🆕 New Bill Number: $parchiId");
       }
-
-      print("✅ New Bill Number: $newBillNo");
 
       final now = DateTime.now().toIso8601String();
 
-      // PowerSync: Insert all transaction rows
+      // ================= INSERT ROWS =================
       for (int i = 0; i < rows.length; i++) {
         final row = rows[i];
 
-        // -------- BUYER EXPENSE CALCULATION (INLINE) --------
         double buyerExpense = 0;
 
         double buyerDag = row.dag;
@@ -569,7 +632,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         final buyerNet = buyerGross + buyerExpense;
 
         await insertRecord('transactions', {
-          'parchi_id': newBillNo.toString(),
+          'parchi_id': parchiId,
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
           'farmer_name': farmerNameCtrl.text,
           'buyer_code': row.buyerCode,
@@ -587,14 +650,14 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         });
       }
 
-      // PowerSync: Insert expenses if any
+      // ================= INSERT EXPENSES =================
       if (expenseExpanded && expenseItems.isNotEmpty) {
         for (var exp in expenseItems) {
           final amount =
               double.tryParse(exp.controller.text) ?? exp.defaultValue;
           if (amount > 0) {
             await insertRecord('transaction_expenses', {
-              'parchi_id': newBillNo.toString(),
+              'parchi_id': parchiId,
               'expense_type_id': exp.id,
               'amount': amount,
               'created_at': now,
@@ -606,12 +669,12 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('पावती नं. $newBillNo यशस्वीरित्या सेव्ह झाली!'),
+          content: Text('पावती नं. $parchiId यशस्वीरित्या सेव्ह झाली!'),
           backgroundColor: Colors.green,
         ),
       );
 
-      _resetForm();
+      Navigator.pop(context); // 🔥 Return to list after save
     } catch (e) {
       print("❌ Save error: $e");
       _showSnackBar("पावती सेव करण्यात त्रुटी: $e");
@@ -654,7 +717,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('नवीन पावती'),
+        title: Text(widget.isEdit ? 'पावती एडिट' : 'नवीन पावती'),
         centerTitle: true,
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
@@ -749,8 +812,12 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                       DataColumn(label: Text('वजन')),
                                       DataColumn(label: Text('भाव')),
                                       DataColumn(label: Text('रक्कम')),
+                                      DataColumn(label: Text('क्रिया')),
                                     ],
-                                    rows: rows.map((row) {
+                                    rows: rows.asMap().entries.map((entry) {
+                                      final index = entry.key;
+                                      final row = entry.value;
+
                                       return DataRow(
                                         cells: [
                                           DataCell(Text(row.buyerName)),
@@ -762,6 +829,27 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                               '₹${row.rate.toStringAsFixed(2)}')),
                                           DataCell(Text(
                                               '₹${row.total.toStringAsFixed(2)}')),
+                                          DataCell(Row(
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.edit,
+                                                    size: 18,
+                                                    color: Colors.blue),
+                                                onPressed: () =>
+                                                    _editRow(index),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.delete,
+                                                    size: 18,
+                                                    color: Colors.red),
+                                                onPressed: () {
+                                                  setState(() {
+                                                    rows.removeAt(index);
+                                                  });
+                                                },
+                                              ),
+                                            ],
+                                          )),
                                         ],
                                       );
                                     }).toList(),
@@ -1178,6 +1266,39 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _loadExistingPavti() async {
+    try {
+      final data = await powerSyncDB.getAll(
+        'SELECT * FROM transactions WHERE parchi_id = ? ORDER BY id ASC',
+        [widget.parchiId],
+      );
+
+      if (data.isEmpty) return;
+
+      final first = data.first;
+
+      setState(() {
+        farmerCodeCtrl.text = first['farmer_code'] ?? '';
+        farmerNameCtrl.text = first['farmer_name'] ?? '';
+        selectedDate = DateTime.parse(first['created_at']);
+
+        rows = data.map((row) {
+          return TransactionRow(
+            buyerCode: row['buyer_code'],
+            buyerName: row['buyer_name'],
+            produceCode: row['produce_code'],
+            produceName: row['produce_name'],
+            dag: (row['dag'] as num).toDouble(),
+            weight: (row['quantity'] as num).toDouble(),
+            rate: (row['rate'] as num).toDouble(),
+          );
+        }).toList();
+      });
+    } catch (e) {
+      print("❌ Edit load error: $e");
+    }
   }
 
   @override
