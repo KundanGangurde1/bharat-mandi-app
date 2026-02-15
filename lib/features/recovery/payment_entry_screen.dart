@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 import 'payment_model.dart';
 import 'payment_detail_screen.dart';
 
@@ -59,9 +60,11 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   /// Load all payments for navigation
   Future<void> _loadAllPayments() async {
     try {
+      // ✅ NEW: Load payments for active firm only
+      final firmId = await FirmDataService.getActiveFirmId();
       final results = await powerSyncDB.getAll(
-        'SELECT * FROM payments ORDER BY created_at DESC',
-        [],
+        'SELECT * FROM payments WHERE firm_id = ? ORDER BY created_at DESC',
+        [firmId],
       );
 
       setState(() {
@@ -181,9 +184,11 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
     try {
       final code = buyerCodeCtrl.text.trim().toUpperCase();
 
+      // ✅ NEW: Fetch buyer for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final buyerRes = await powerSyncDB.getAll(
-        'SELECT name FROM buyers WHERE code = ? AND active = 1',
-        [code],
+        'SELECT name FROM buyers WHERE firm_id = ? AND code = ? AND active = 1',
+        [firmId, code],
       );
 
       if (buyerRes.isEmpty) {
@@ -208,6 +213,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
       });
     } catch (e) {
       print('❌ Error fetching buyer balance: $e');
+      print('⚠️ Check if active firm is set');
       setState(() {
         errorMessage = 'त्रुटी: $e';
       });
@@ -252,9 +258,9 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
 
       final now = DateTime.now().toIso8601String();
 
-      // Step 1: Insert payment record
-      // Step 1: Insert payment record
-      await insertRecord('payments', {
+      // Step 1: Insert payment record with firm_id
+      // ✅ NEW: Insert with firm_id
+      final paymentData = {
         'buyer_code': buyerCode,
         'buyer_name': buyerName,
         'amount': amount,
@@ -262,7 +268,8 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         'notes': '',
         'created_at': now,
         'updated_at': now,
-      });
+      };
+      await FirmDataService.insertRecordWithFirmId('payments', paymentData);
 
       if (mounted) {
         _showSnackBar(

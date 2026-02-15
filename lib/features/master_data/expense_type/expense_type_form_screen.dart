@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class ExpenseTypeFormScreen extends StatefulWidget {
   final String? expenseId;
@@ -40,10 +41,11 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Load expense type data
+      // ✅ NEW: Load expense type data for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM expense_types WHERE id = ?',
-        [widget.expenseId],
+        'SELECT * FROM expense_types WHERE firm_id = ? AND id = ?',
+        [firmId, widget.expenseId],
       );
 
       if (data.isNotEmpty) {
@@ -59,7 +61,8 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
         showInReport = expenseData!['show_in_report'] == 1;
       }
     } catch (e) {
-      print("❌ Error loading expense type: $e");
+      print('❌ Error loading expense type: $e');
+      print('⚠️ Check if active firm is set');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('त्रुटी: $e')),
@@ -110,8 +113,8 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
         await updateRecord('expense_types', widget.expenseId!, expense);
       } else {
         expense['created_at'] = now;
-        // PowerSync: Insert expense type
-        await insertRecord('expense_types', expense);
+        // ✅ NEW: Insert expense type with firm_id
+        await FirmDataService.insertRecordWithFirmId('expense_types', expense);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -125,7 +128,8 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
 
       Navigator.pop(context, true);
     } catch (e) {
-      print("❌ Error saving expense type: $e");
+      print('❌ Error saving expense type: $e');
+      print('⚠️ Check if active firm is set');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: ${e.toString()}'),

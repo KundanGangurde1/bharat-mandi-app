@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class AreaMasterScreen extends StatefulWidget {
   const AreaMasterScreen({super.key});
@@ -20,17 +21,15 @@ class _AreaMasterScreenState extends State<AreaMasterScreen> {
 
   Future<void> _loadAreas() async {
     try {
-      // PowerSync: Load active areas ordered by name
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM areas WHERE active = 1 ORDER BY name ASC',
-      );
+      // ✅ NEW: Get areas for active firm only
+      final data = await FirmDataService.getAreasForActiveFirm();
 
       setState(() {
         areas = data;
         isLoading = false;
       });
 
-      print('✅ Loaded ${areas.length} areas');
+      print('✅ Loaded ${areas.length} areas for active firm');
     } catch (e) {
       print("❌ Error loading areas: $e");
       setState(() => isLoading = false);
@@ -39,6 +38,7 @@ class _AreaMasterScreenState extends State<AreaMasterScreen> {
           SnackBar(content: Text('त्रुटी: $e')),
         );
       }
+      print('⚠️ Check if active firm is set');
     }
   }
 
@@ -48,8 +48,8 @@ class _AreaMasterScreenState extends State<AreaMasterScreen> {
 
     try {
       if (id == null) {
-        // PowerSync: Insert new area
-        await insertRecord('areas', {
+        // ✅ NEW: Insert new area with firm_id
+        await FirmDataService.insertRecordWithFirmId('areas', {
           'name': name,
           'active': active ? 1 : 0,
           'created_at': now,

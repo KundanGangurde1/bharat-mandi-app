@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class BuyerFormScreen extends StatefulWidget {
   final String? buyerId;
@@ -42,10 +43,11 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Load buyer data
+      // ✅ NEW: Load buyer data for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM buyers WHERE id = ?',
-        [widget.buyerId],
+        'SELECT * FROM buyers WHERE firm_id = ? AND id = ?',
+        [firmId, widget.buyerId],
       );
 
       if (data.isNotEmpty) {
@@ -67,7 +69,8 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
         });
       }
     } catch (e) {
-      print("❌ Error loading buyer: $e");
+      print('❌ Error loading buyer: $e');
+      print('⚠️ Check if active firm is set');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('त्रुटी: $e')),
@@ -94,7 +97,11 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
     }
 
     if (!isEditMode || code != buyerData?['code']) {
-      // PowerSync: Check code uniqueness
+      // ✅ NEW: Check code uniqueness for active firm
+      final firmId2 = await FirmDataService.getActiveFirmId();
+      if (firmId2 == null) {
+        throw Exception('No active firm found');
+      }
       final isUnique = await isCodeUnique(code, 'buyers');
       if (!isUnique) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -127,8 +134,8 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
         await updateRecord('buyers', widget.buyerId!, buyer);
       } else {
         buyer['created_at'] = now;
-        // PowerSync: Insert buyer
-        await insertRecord('buyers', buyer);
+        // ✅ NEW: Insert buyer with firm_id
+        await FirmDataService.insertRecordWithFirmId('buyers', buyer);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,7 +149,8 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
 
       Navigator.pop(context, true);
     } catch (e) {
-      print("❌ Error saving buyer: $e");
+      print('❌ Error saving buyer: $e');
+      print('⚠️ Check if active firm is set');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: $e'),

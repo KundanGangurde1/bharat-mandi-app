@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/services/firm_data_service.dart'; // ✅ NEW
 import '../../core/expense_controller.dart';
 import '../transaction/pavti_list_screen.dart';
 
@@ -103,9 +104,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
   Future<void> _loadExpenseTypes() async {
     try {
-      // PowerSync: Load active expense types
+      // ✅ NEW: Load active expense types for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM expense_types WHERE active = 1 ORDER BY name ASC',
+        'SELECT * FROM expense_types WHERE firm_id = ? AND active = 1 ORDER BY name ASC',
+        [firmId],
       );
 
       setState(() {
@@ -194,10 +197,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       return;
     }
     try {
-      // PowerSync: Lookup farmer by code
+      // ✅ NEW: Lookup farmer by code for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM farmers WHERE code = ? AND active = 1',
-        [code],
+        'SELECT * FROM farmers WHERE firm_id = ? AND code = ? AND active = 1',
+        [firmId, code],
       );
 
       setState(() {
@@ -223,10 +227,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       return;
     }
     try {
-      // PowerSync: Lookup produce by code
+      // ✅ NEW: Lookup produce by code for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM produce WHERE code = ? AND active = 1',
-        [code],
+        'SELECT * FROM produce WHERE firm_id = ? AND code = ? AND active = 1',
+        [firmId, code],
       );
 
       setState(() {
@@ -256,10 +261,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       return;
     }
     try {
-      // PowerSync: Lookup buyer by code
+      // ✅ NEW: Lookup buyer by code for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM buyers WHERE code = ? AND active = 1',
-        [code],
+        'SELECT * FROM buyers WHERE firm_id = ? AND code = ? AND active = 1',
+        [firmId, code],
       );
 
       setState(() {
@@ -562,22 +568,26 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       if (widget.isEdit && widget.parchiId != null) {
         parchiId = widget.parchiId!;
 
-        // 🔥 Delete old transactions
+        // 🔥 Delete old transactions for active firm
+        final firmId2 = await FirmDataService.getActiveFirmId();
         await powerSyncDB.execute(
-          'DELETE FROM transactions WHERE parchi_id = ?',
-          [parchiId],
+          'DELETE FROM transactions WHERE firm_id = ? AND parchi_id = ?',
+          [firmId2, parchiId],
         );
 
         await powerSyncDB.execute(
-          'DELETE FROM transaction_expenses WHERE parchi_id = ?',
-          [parchiId],
+          'DELETE FROM transaction_expenses WHERE firm_id = ? AND parchi_id = ?',
+          [firmId2, parchiId],
         );
 
         print("✏️ Editing Existing Pavti: $parchiId");
       } else {
         // ================= NEW MODE =================
+        // ✅ NEW: Get last parchi_id for active firm
+        final firmId = await FirmDataService.getActiveFirmId();
         final lastParchi = await powerSyncDB.getAll(
-          'SELECT MAX(CAST(parchi_id AS INTEGER)) as max_id FROM transactions',
+          'SELECT MAX(CAST(parchi_id AS INTEGER)) as max_id FROM transactions WHERE firm_id = ?',
+          [firmId],
         );
 
         int newBillNo = 1;
@@ -631,7 +641,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
         final buyerNet = buyerGross + buyerExpense;
 
-        await insertRecord('transactions', {
+        // ✅ NEW: Insert with firm_id
+        final transactionData = {
           'parchi_id': parchiId,
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
           'farmer_name': farmerNameCtrl.text,
@@ -647,7 +658,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           'net': buyerNet,
           'created_at': selectedDate.toIso8601String(),
           'updated_at': now,
-        });
+        };
+        await FirmDataService.insertRecordWithFirmId(
+            'transactions', transactionData);
       }
 
       // ================= INSERT EXPENSES =================
@@ -656,13 +669,16 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           final amount =
               double.tryParse(exp.controller.text) ?? exp.defaultValue;
           if (amount > 0) {
-            await insertRecord('transaction_expenses', {
+            // ✅ NEW: Insert with firm_id
+            final expenseData = {
               'parchi_id': parchiId,
               'expense_type_id': exp.id,
               'amount': amount,
               'created_at': now,
               'updated_at': now,
-            });
+            };
+            await FirmDataService.insertRecordWithFirmId(
+                'transaction_expenses', expenseData);
           }
         }
       }
@@ -676,7 +692,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
       Navigator.pop(context); // 🔥 Return to list after save
     } catch (e) {
-      print("❌ Save error: $e");
+      print('❌ Save error: $e');
+      print('⚠️ Check if active firm is set');
       _showSnackBar("पावती सेव करण्यात त्रुटी: $e");
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class FarmerFormScreen extends StatefulWidget {
   final String? farmerId;
@@ -40,10 +41,11 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Get farmer by ID
+      // ✅ NEW: Get farmer by ID for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM farmers WHERE id = ?',
-        [widget.farmerId],
+        'SELECT * FROM farmers WHERE firm_id = ? AND id = ?',
+        [firmId, widget.farmerId],
       );
 
       if (data.isNotEmpty) {
@@ -55,10 +57,11 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
         addressCtrl.text = farmerData!['address']?.toString() ?? '';
         balanceCtrl.text = farmerData!['opening_balance']?.toString() ?? '0';
 
-        // PowerSync: Check if code is used in transactions
+        // ✅ NEW: Check if code is used in transactions for active firm
+        final firmId2 = await FirmDataService.getActiveFirmId();
         final isUsedResult = await powerSyncDB.getAll(
-          'SELECT COUNT(*) as count FROM transactions WHERE farmer_code = ?',
-          [farmerData!['code']?.toString() ?? ''],
+          'SELECT COUNT(*) as count FROM transactions WHERE firm_id = ? AND farmer_code = ?',
+          [firmId2, farmerData!['code']?.toString() ?? ''],
         );
 
         final isUsed =
@@ -69,7 +72,8 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
         });
       }
     } catch (e) {
-      print("❌ Error loading farmer: $e");
+      print('❌ Error loading farmer: $e');
+      print('⚠️ Check if active firm is set');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('त्रुटी: $e')),
@@ -88,9 +92,14 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
     // Validate code uniqueness (except for edit mode with same code)
     if (!isEditMode || code != farmerData?['code']) {
       try {
+        // ✅ NEW: Check code uniqueness for active firm only
+        final firmId3 = await FirmDataService.getActiveFirmId();
+        if (firmId3 == null) {
+          throw Exception('No active firm found');
+        }
         final uniqueResult = await powerSyncDB.getAll(
-          'SELECT COUNT(*) as count FROM farmers WHERE code = ?',
-          [code],
+          'SELECT COUNT(*) as count FROM farmers WHERE firm_id = ? AND code = ?',
+          [firmId3, code],
         );
 
         final isUnique =
@@ -105,7 +114,8 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
           return;
         }
       } catch (e) {
-        print("❌ Error checking code uniqueness: $e");
+        print('❌ Error checking code uniqueness: $e');
+        print('⚠️ Check if active firm is set');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('कोड तपासणीमध्ये त्रुटी: $e')),
@@ -147,12 +157,12 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
 
         print('✅ Farmer updated successfully');
       } else {
-        // PowerSync: Insert new farmer
+        // ✅ NEW: Insert new farmer with firm_id
         farmer['created_at'] = now;
         farmer['active'] = 1;
-        await insertRecord('farmers', farmer);
+        await FirmDataService.insertRecordWithFirmId('farmers', farmer);
 
-        print('✅ Farmer created successfully');
+        print('✅ Farmer created successfully with firm_id');
       }
 
       if (mounted) {
@@ -166,7 +176,8 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
         Navigator.pop(context, true);
       }
     } catch (e) {
-      print("❌ Error saving farmer: $e");
+      print('❌ Error saving farmer: $e');
+      print('⚠️ Check if active firm is set');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('त्रुटी: $e')),

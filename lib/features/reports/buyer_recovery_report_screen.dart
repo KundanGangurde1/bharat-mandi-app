@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/services/firm_data_service.dart'; // ✅ NEW
 import '../buyer/buyer_ledger_screen.dart';
 
 class BuyerRecoveryReportScreen extends StatefulWidget {
@@ -25,12 +26,16 @@ class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
 
   Future<void> _loadAreas() async {
     try {
+      // ✅ NEW: Load areas for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM areas WHERE active = 1 ORDER BY name ASC',
+        'SELECT * FROM areas WHERE firm_id = ? AND active = 1 ORDER BY name ASC',
+        [firmId],
       );
       setState(() => areas = data);
     } catch (e) {
-      print("❌ Error loading areas: $e");
+      print('❌ Error loading areas: $e');
+      print('⚠️ Check if active firm is set');
     }
   }
 
@@ -38,14 +43,18 @@ class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
     setState(() => isLoading = true);
 
     try {
-      final data = await getBuyerRecovery(areaId: selectedAreaId);
+      // ✅ NEW: Get buyer recovery for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
+      final data =
+          await getBuyerRecovery(firmId: firmId, areaId: selectedAreaId);
 
       setState(() {
         buyers = data;
         isLoading = false;
       });
     } catch (e) {
-      print("❌ Error loading buyer recovery: $e");
+      print('❌ Error loading buyer recovery: $e');
+      print('⚠️ Check if active firm is set');
       setState(() => isLoading = false);
     }
   }

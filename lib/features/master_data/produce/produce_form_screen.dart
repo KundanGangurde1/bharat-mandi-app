@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class ProduceFormScreen extends StatefulWidget {
   final String? produceId;
@@ -37,10 +38,11 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Load produce data
+      // ✅ NEW: Load produce data for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM produce WHERE id = ?',
-        [widget.produceId],
+        'SELECT * FROM produce WHERE firm_id = ? AND id = ?',
+        [firmId, widget.produceId],
       );
 
       if (data.isNotEmpty) {
@@ -51,10 +53,11 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
         varietyCtrl.text = produceData!['variety']?.toString() ?? '';
         categoryCtrl.text = produceData!['category']?.toString() ?? '';
 
-        // Check if code is used in transactions
+        // ✅ NEW: Check if code is used in transactions for active firm
+        final firmId2 = await FirmDataService.getActiveFirmId();
         final transactions = await powerSyncDB.getAll(
-          'SELECT COUNT(*) as count FROM transactions WHERE produce_code = ?',
-          [produceData!['code']?.toString() ?? ''],
+          'SELECT COUNT(*) as count FROM transactions WHERE firm_id = ? AND produce_code = ?',
+          [firmId2, produceData!['code']?.toString() ?? ''],
         );
 
         final count = (transactions.isNotEmpty
@@ -66,7 +69,8 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
         setState(() {});
       }
     } catch (e) {
-      print("❌ Error loading produce: $e");
+      print('❌ Error loading produce: $e');
+      print('⚠️ Check if active firm is set');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('त्रुटी: $e')),
@@ -85,9 +89,14 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     // Check if code is unique (if new or code changed)
     if (!isEditMode || code != produceData?['code']) {
       try {
+        // ✅ NEW: Check code uniqueness for active firm
+        final firmId3 = await FirmDataService.getActiveFirmId();
+        if (firmId3 == null) {
+          throw Exception('No active firm found');
+        }
         final existing = await powerSyncDB.getAll(
-          'SELECT COUNT(*) as count FROM produce WHERE code = ? AND id != ?',
-          [code, widget.produceId ?? ''],
+          'SELECT COUNT(*) as count FROM produce WHERE firm_id = ? AND code = ? AND id != ?',
+          [firmId3, code, widget.produceId ?? ''],
         );
 
         final count =
@@ -125,11 +134,11 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
         await updateRecord('produce', widget.produceId!, produce);
         print('✅ Produce updated: $widget.produceId');
       } else {
-        // PowerSync: Insert new produce
+        // ✅ NEW: Insert new produce with firm_id
         produce['created_at'] = now;
         produce['active'] = 1;
-        await insertRecord('produce', produce);
-        print('✅ Produce created');
+        await FirmDataService.insertRecordWithFirmId('produce', produce);
+        print('✅ Produce created with firm_id');
       }
 
       if (!mounted) return;
@@ -147,7 +156,8 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
         if (mounted) Navigator.pop(context, true);
       });
     } catch (e) {
-      print("❌ Error saving produce: $e");
+      print('❌ Error saving produce: $e');
+      print('⚠️ Check if active firm is set');
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(

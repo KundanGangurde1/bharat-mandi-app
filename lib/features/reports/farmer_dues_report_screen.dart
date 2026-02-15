@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class FarmerDuesReportScreen extends StatefulWidget {
   const FarmerDuesReportScreen({super.key});
@@ -22,7 +23,8 @@ class _FarmerDuesReportScreenState extends State<FarmerDuesReportScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Calculate farmer dues from transactions
+      // ✅ NEW: Calculate farmer dues for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll('''
         SELECT 
           f.id,
@@ -32,11 +34,11 @@ class _FarmerDuesReportScreenState extends State<FarmerDuesReportScreen> {
           COALESCE(SUM(t.net), 0) as total_net,
           COALESCE(SUM(CASE WHEN t.net > 0 THEN t.net ELSE 0 END), 0) as dues
         FROM farmers f
-        LEFT JOIN transactions t ON f.code = t.farmer_code
-        WHERE f.active = 1
+        LEFT JOIN transactions t ON f.firm_id = t.firm_id AND f.code = t.farmer_code
+        WHERE f.firm_id = ? AND f.active = 1
         GROUP BY f.id, f.code, f.name, f.phone
         ORDER BY dues DESC
-      ''');
+      ''', [firmId]);
 
       setState(() {
         farmers = data;
@@ -45,7 +47,8 @@ class _FarmerDuesReportScreenState extends State<FarmerDuesReportScreen> {
 
       print('✅ Loaded farmer dues for ${farmers.length} farmers');
     } catch (e) {
-      print("❌ Error loading farmer dues: $e");
+      print('❌ Error loading farmer dues: $e');
+      print('⚠️ Check if active firm is set');
       setState(() => isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

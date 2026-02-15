@@ -1,4 +1,4 @@
-// ✅ POWERSYNC SERVICE - PHASE 3 UPDATED WITH HELPER FUNCTIONS
+// ✅ POWERSYNC SERVICE - COMPLETE WITH FIRM_ID & HELPER FUNCTIONS
 import 'dart:io';
 import 'package:powersync/powersync.dart';
 import 'package:path_provider/path_provider.dart';
@@ -7,10 +7,11 @@ import 'package:uuid/uuid.dart';
 
 late PowerSyncDatabase powerSyncDB;
 
-// ✅ PowerSync Schema with all 9 tables
+// ✅ PowerSync Schema with all 9 tables + firm_id for data isolation
 final schema = Schema([
   // 1. FARMERS TABLE
   Table('farmers', [
+    Column.text('firm_id'),
     Column.text('code'),
     Column.text('name'),
     Column.text('phone'),
@@ -21,8 +22,9 @@ final schema = Schema([
     Column.text('updated_at'),
   ]),
 
-  // 2. buyerS TABLE
+  // 2. BUYERS TABLE
   Table('buyers', [
+    Column.text('firm_id'),
     Column.text('code'),
     Column.text('name'),
     Column.text('phone'),
@@ -37,6 +39,7 @@ final schema = Schema([
 
   // 3. PRODUCE TABLE
   Table('produce', [
+    Column.text('firm_id'),
     Column.text('code'),
     Column.text('name'),
     Column.text('variety'),
@@ -48,6 +51,7 @@ final schema = Schema([
 
   // 4. EXPENSE TYPES TABLE
   Table('expense_types', [
+    Column.text('firm_id'),
     Column.text('name'),
     Column.text('apply_on'),
     Column.text('calculation_type'),
@@ -60,6 +64,7 @@ final schema = Schema([
 
   // 5. TRANSACTIONS TABLE
   Table('transactions', [
+    Column.text('firm_id'),
     Column.integer('parchi_id'),
     Column.text('farmer_code'),
     Column.text('farmer_name'),
@@ -79,6 +84,7 @@ final schema = Schema([
 
   // 6. TRANSACTION EXPENSES TABLE
   Table('transaction_expenses', [
+    Column.text('firm_id'),
     Column.integer('parchi_id'),
     Column.integer('expense_type_id'),
     Column.real('amount'),
@@ -87,6 +93,7 @@ final schema = Schema([
 
   // 7. PAYMENTS TABLE
   Table('payments', [
+    Column.text('firm_id'),
     Column.text('buyer_code'),
     Column.text('buyer_name'),
     Column.real('amount'),
@@ -98,6 +105,7 @@ final schema = Schema([
 
   // 8. AREAS TABLE
   Table('areas', [
+    Column.text('firm_id'),
     Column.text('name'),
     Column.integer('active'),
     Column.text('created_at'),
@@ -118,6 +126,7 @@ final schema = Schema([
     Column.text('gst_number'),
     Column.text('pan_number'),
     Column.integer('active'),
+    Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
@@ -140,6 +149,7 @@ Future<void> initPowerSync() async {
 
     print('✅ PowerSync initialized successfully');
     print('✅ All 9 tables ready for offline-first sync');
+    print('✅ Firm-based data isolation enabled');
   } catch (e) {
     print('❌ PowerSync initialization error: $e');
     rethrow;
@@ -148,6 +158,14 @@ Future<void> initPowerSync() async {
 
 // ✅ Get PowerSync database instance
 Future<PowerSyncDatabase> getPowerSyncDatabase() async {
+  try {
+    if (powerSyncDB == null) {
+      await initPowerSync();
+    }
+  } catch (e) {
+    print('❌ Error getting PowerSync: $e');
+    await initPowerSync();
+  }
   return powerSyncDB;
 }
 
@@ -309,7 +327,7 @@ Future<void> deleteRecord(String table, String id) async {
 }
 
 // ============================================================================
-// ✅ PHASE 3: HELPER FUNCTIONS FOR SCREENS
+// ✅ HELPER FUNCTIONS FOR SCREENS
 // ============================================================================
 
 // ✅ Check if code is unique across a table
@@ -373,7 +391,8 @@ Future<List<Map<String, dynamic>>> getFarmerDues() async {
 
 // ✅ Get buyer recovery report
 // ✅ BUYER RECOVERY / BALANCE (SINGLE SOURCE OF TRUTH)
-Future<List<Map<String, dynamic>>> getBuyerRecovery({String? areaId}) async {
+Future<List<Map<String, dynamic>>> getBuyerRecovery(
+    {String? firmId, String? areaId}) async {
   try {
     String query = '''
       SELECT 
@@ -391,9 +410,9 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery({String? areaId}) async {
 
       FROM buyers b
       LEFT JOIN transactions t
-        ON t.buyer_code = b.code
+        ON t.buyer_code = b.code AND t.firm_id = b.firm_id
       LEFT JOIN payments p
-        ON p.buyer_code = b.code
+        ON p.buyer_code = b.code AND p.firm_id = b.firm_id
       LEFT JOIN areas a
         ON a.id = b.area_id
 
@@ -401,6 +420,12 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery({String? areaId}) async {
     ''';
 
     List<dynamic> params = [];
+
+    // ✅ NEW: Filter by firm_id
+    if (firmId != null && firmId.isNotEmpty) {
+      query += ' AND b.firm_id = ?';
+      params.add(firmId);
+    }
 
     if (areaId != null && areaId.isNotEmpty) {
       query += ' AND b.area_id = ?';

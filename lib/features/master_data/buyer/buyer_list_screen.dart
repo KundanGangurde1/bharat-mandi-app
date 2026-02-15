@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'buyer_form_screen.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class BuyerListScreen extends StatefulWidget {
   const BuyerListScreen({super.key});
@@ -24,17 +25,15 @@ class _BuyerListScreenState extends State<BuyerListScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Get all buyers ordered by name
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM buyers ORDER BY name ASC',
-      );
+      // ✅ NEW: Get buyers for active firm only
+      final data = await FirmDataService.getBuyersForActiveFirm();
 
       setState(() {
         buyers = data;
         isLoading = false;
       });
 
-      print('✅ Loaded ${buyers.length} buyers');
+      print('✅ Loaded ${buyers.length} buyers for active firm');
     } catch (e) {
       print("❌ Error loading buyers: $e");
       setState(() => isLoading = false);
@@ -43,6 +42,7 @@ class _BuyerListScreenState extends State<BuyerListScreen> {
           SnackBar(content: Text('त्रुटी: $e')),
         );
       }
+      print('⚠️ Check if active firm is set');
     }
   }
 

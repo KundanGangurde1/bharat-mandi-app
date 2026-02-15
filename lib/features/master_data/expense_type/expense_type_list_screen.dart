@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 import '../expense_type/expense_type_form_screen.dart';
 
 class ExpenseTypeListScreen extends StatefulWidget {
@@ -26,25 +27,23 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Load expense types with optional filter
-      String query = 'SELECT * FROM expense_types';
-      List<dynamic> params = [];
+      // ✅ NEW: Get expense types for active firm only
+      List<Map<String, dynamic>> data =
+          await FirmDataService.getExpenseTypesForActiveFirm();
 
+      // Apply filter
       if (selectedFilter != 'all') {
-        query += ' WHERE apply_on = ?';
-        params.add(selectedFilter);
+        data = data
+            .where((e) => e['apply_on']?.toString() == selectedFilter)
+            .toList();
       }
-
-      query += ' ORDER BY apply_on, name ASC';
-
-      final data = await powerSyncDB.getAll(query, params);
 
       setState(() {
         expenseTypes = data;
         isLoading = false;
       });
 
-      print('✅ Loaded ${expenseTypes.length} expense types');
+      print('✅ Loaded ${expenseTypes.length} expense types for active firm');
     } catch (e) {
       print("❌ Error loading expense types: $e");
       setState(() => isLoading = false);
@@ -53,6 +52,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
           SnackBar(content: Text('त्रुटी: $e')),
         );
       }
+      print('⚠️ Check if active firm is set');
     }
   }
 

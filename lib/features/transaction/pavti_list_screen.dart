@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/services/firm_data_service.dart'; // ✅ NEW
 import 'pavti_detail_screen.dart';
 
 class PavtiListScreen extends StatefulWidget {
@@ -24,7 +25,8 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Get distinct transactions grouped by parchi_id
+      // ✅ NEW: Get distinct transactions for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll('''
   SELECT 
     parchi_id,
@@ -34,9 +36,10 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     SUM(total_expense) as total_expense,
     SUM(net) as net
   FROM transactions
+  WHERE firm_id = ?
   GROUP BY parchi_id, farmer_name, farmer_code
   ORDER BY parchi_id DESC
-''');
+''', [firmId]);
 
       setState(() {
         pavtis = data;
@@ -77,10 +80,11 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
 
     if (confirm == true) {
       try {
-        // PowerSync: Delete all transactions with this parchi_id
+        // ✅ NEW: Delete transactions for active firm
+        final firmId = await FirmDataService.getActiveFirmId();
         await powerSyncDB.execute(
-          'DELETE FROM transactions WHERE parchi_id = ?',
-          [parchiId],
+          'DELETE FROM transactions WHERE firm_id = ? AND parchi_id = ?',
+          [firmId, parchiId],
         );
 
         await _loadPavtis();
@@ -91,7 +95,8 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
           ),
         );
       } catch (e) {
-        print("❌ Error deleting pavti: $e");
+        print('❌ Error deleting pavti: $e');
+        print('⚠️ Check if active firm is set');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('त्रुटी: $e'),

@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/services/firm_data_service.dart'; // ✅ NEW
 import '../transaction/new_transaction_screen.dart';
 
 class PavtiDetailScreen extends StatefulWidget {
@@ -33,8 +34,11 @@ class _PavtiDetailScreenState extends State<PavtiDetailScreen> {
   }
 
   Future<void> _initData() async {
+    // ✅ NEW: Get parchi_ids for active firm
+    final firmId = await FirmDataService.getActiveFirmId();
     final ids = await powerSyncDB.getAll(
-      'SELECT DISTINCT parchi_id FROM transactions ORDER BY parchi_id ASC',
+      'SELECT DISTINCT parchi_id FROM transactions WHERE firm_id = ? ORDER BY parchi_id ASC',
+      [firmId],
     );
 
     allParchiIds = ids.map((e) => e['parchi_id'].toString()).toList();
@@ -48,16 +52,18 @@ class _PavtiDetailScreenState extends State<PavtiDetailScreen> {
     setState(() => isLoading = true);
 
     try {
+      // ✅ NEW: Load transactions for active firm
+      final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
-        'SELECT * FROM transactions WHERE parchi_id = ? ORDER BY id ASC',
-        [widget.parchiId],
+        'SELECT * FROM transactions WHERE firm_id = ? AND parchi_id = ? ORDER BY id ASC',
+        [firmId, widget.parchiId],
       );
 
       final expenseData = await powerSyncDB.getAll(
         'SELECT te.*, et.name as expense_name FROM transaction_expenses te '
         'LEFT JOIN expense_types et ON te.expense_type_id = et.id '
-        'WHERE te.parchi_id = ?',
-        [widget.parchiId],
+        'WHERE te.firm_id = ? AND te.parchi_id = ?',
+        [firmId, widget.parchiId],
       );
 
       setState(() {
@@ -67,7 +73,8 @@ class _PavtiDetailScreenState extends State<PavtiDetailScreen> {
         isLoading = false;
       });
     } catch (e) {
-      print("❌ Error loading pavti: $e");
+      print('❌ Error loading pavti: $e');
+      print('⚠️ Check if active firm is set');
       setState(() => isLoading = false);
     }
   }

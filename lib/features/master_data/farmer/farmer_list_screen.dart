@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'farmer_form_screen.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class FarmerListScreen extends StatefulWidget {
   const FarmerListScreen({super.key});
@@ -24,17 +25,15 @@ class _FarmerListScreenState extends State<FarmerListScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Get all farmers ordered by name
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM farmers ORDER BY name ASC',
-      );
+      // ✅ NEW: Get farmers for active firm only
+      final data = await FirmDataService.getFarmersForActiveFirm();
 
       setState(() {
         farmers = data;
         isLoading = false;
       });
 
-      print('✅ Loaded ${farmers.length} farmers');
+      print('✅ Loaded ${farmers.length} farmers for active firm');
     } catch (e) {
       print("❌ Error loading farmers: $e");
       setState(() => isLoading = false);
@@ -43,6 +42,7 @@ class _FarmerListScreenState extends State<FarmerListScreen> {
           SnackBar(content: Text('त्रुटी: $e')),
         );
       }
+      print('⚠️ Check if active firm is set');
     }
   }
 

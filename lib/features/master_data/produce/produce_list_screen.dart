@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'produce_form_screen.dart';
 import '../../../core/services/powersync_service.dart';
+import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 
 class ProduceListScreen extends StatefulWidget {
   const ProduceListScreen({super.key});
@@ -24,17 +25,15 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
     setState(() => isLoading = true);
 
     try {
-      // PowerSync: Get all produce ordered by name
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM produce ORDER BY name ASC',
-      );
+      // ✅ NEW: Get produce for active firm only
+      final data = await FirmDataService.getProduceForActiveFirm();
 
       setState(() {
         produceList = data;
         isLoading = false;
       });
 
-      print('✅ Loaded ${produceList.length} produce items');
+      print('✅ Loaded ${produceList.length} produce items for active firm');
     } catch (e) {
       print("❌ Error loading produce: $e");
       setState(() => isLoading = false);
@@ -43,6 +42,7 @@ class _ProduceListScreenState extends State<ProduceListScreen> {
           SnackBar(content: Text('त्रुटी: $e')),
         );
       }
+      print('⚠️ Check if active firm is set');
     }
   }
 
