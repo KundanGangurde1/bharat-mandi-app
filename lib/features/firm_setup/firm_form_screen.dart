@@ -73,6 +73,7 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
     super.dispose();
   }
 
+  /// ✅ Save firm with proper state management
   Future<void> _saveFirm() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -82,6 +83,7 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
       final now = DateTime.now().toIso8601String();
 
       if (widget.firm == null) {
+        // 🔥 CREATE NEW FIRM
         final newFirm = Firm(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           name: _nameController.text.trim(),
@@ -99,31 +101,48 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
           pan_number: _panController.text.trim().isNotEmpty
               ? _panController.text.trim()
               : null,
-          active: false,
+          active: false, // Will be auto-activated if first firm
           created_at: now,
           updated_at: now,
         );
 
+        // Add firm to database
         final firmId = await FirmService.addFirm(newFirm);
 
+        // Fetch the created firm from database
         final createdFirm = await FirmService.getFirmById(firmId);
 
-        if (createdFirm != null) {
+        if (createdFirm != null && mounted) {
+          // Update provider with the created firm
           final provider =
               Provider.of<ActiveFirmProvider>(context, listen: false);
-          await provider.setActiveFirm(createdFirm);
+
+          // If this is the first firm, it's already active in DB
+          // Just update the provider
+          if (createdFirm.active) {
+            await provider.setActiveFirm(createdFirm);
+          } else {
+            // If not first firm, activate it
+            await provider.setActiveFirm(createdFirm);
+          }
+
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('फर्म यशस्वीरित्या जोडला गेला'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          // For first setup, wait a moment for state to update
+          if (widget.isFirstSetup) {
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
         }
-
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('फर्म यशस्वीरित्या जोडला गेला'),
-            backgroundColor: Colors.green,
-          ),
-        );
       } else {
-        // 🔥 UPDATE FIRM
+        // 🔥 UPDATE EXISTING FIRM
         final updatedFirm = widget.firm!.copyWith(
           name: _nameController.text.trim(),
           code: _codeController.text.trim(),
@@ -151,15 +170,19 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
           const SnackBar(
             content: Text('फर्म यशस्वीरित्या अपडेट झाले'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
       }
 
       if (!mounted) return;
 
+      // Navigate back if not first setup
       if (!widget.isFirstSetup) {
         Navigator.pop(context);
       }
+      // For first setup, AppRootScreen will automatically navigate to dashboard
+      // because ActiveFirmProvider will have activeFirm set
     } catch (e) {
       if (!mounted) return;
 
@@ -167,10 +190,13 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
         SnackBar(
           content: Text('त्रुटी: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
         ),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

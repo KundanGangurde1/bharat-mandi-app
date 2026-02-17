@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'firm_model.dart';
 import 'firm_service.dart';
 import 'firm_form_screen.dart';
 import 'firm_list_screen.dart';
+import '../../core/active_firm_provider.dart';
 
 class FirmSetupScreen extends StatefulWidget {
   const FirmSetupScreen({super.key});
@@ -300,6 +302,7 @@ class _FirmSetupScreenState extends State<FirmSetupScreen> {
     );
   }
 
+  /// ✅ Show dialog to switch active firm with provider notification
   void _showActiveFirmDialog() async {
     final firms = await FirmService.getAllFirms();
 
@@ -329,24 +332,44 @@ class _FirmSetupScreenState extends State<FirmSetupScreen> {
               return ListTile(
                 title: Text(firm.name),
                 subtitle: Text(firm.owner_name),
+                trailing: firm.active
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : null,
                 onTap: () async {
                   Navigator.pop(context);
 
                   try {
+                    // 1️⃣ Update database
                     await FirmService.setActiveFirm(firm.id);
+
+                    // 2️⃣ ✅ Update provider immediately
+                    if (!mounted) return;
+
+                    final provider =
+                        Provider.of<ActiveFirmProvider>(context, listen: false);
+
+                    // Fetch the updated firm from DB
+                    final updatedFirm = await FirmService.getFirmById(firm.id);
+                    if (updatedFirm != null) {
+                      await provider.setActiveFirm(updatedFirm);
+                    }
+
+                    if (!mounted) return;
 
                     setState(() {
                       _firmCount = FirmService.getFirmCount();
                     });
 
-                    if (!mounted) return;
-
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('${firm.name} सक्रिय झाले'),
+                        content: Text('${firm.name} सक्रिय झाले ✅'),
                         backgroundColor: Colors.green,
+                        duration: const Duration(seconds: 2),
                       ),
                     );
+
+                    print('✅ Firm switched to: ${firm.name}');
+                    print('✅ Provider notified - drawer will update instantly');
                   } catch (e) {
                     if (!mounted) return;
 
@@ -356,6 +379,8 @@ class _FirmSetupScreenState extends State<FirmSetupScreen> {
                         backgroundColor: Colors.red,
                       ),
                     );
+
+                    print('❌ Error switching firm: $e');
                   }
                 },
               );
@@ -398,16 +423,16 @@ class _FirmSetupScreenState extends State<FirmSetupScreen> {
             children: [
               _buildDetailRow('फर्मचे नाव:', firm.name),
               _buildDetailRow('मालकाचे नाव:', firm.owner_name),
-              _buildDetailRow('फोन:', firm.phone),
+              _buildDetailRow('फोन नंबर:', firm.phone),
               _buildDetailRow('ईमेल:', firm.email),
               _buildDetailRow('पत्ता:', firm.address),
               _buildDetailRow('शहर:', firm.city),
               _buildDetailRow('राज्य:', firm.state),
-              _buildDetailRow('पिनकोड:', firm.pincode),
-              if (firm.gst_number != null && firm.gst_number!.isNotEmpty)
-                _buildDetailRow('GST क्रमांक:', firm.gst_number ?? ''),
-              if (firm.pan_number != null && firm.pan_number!.isNotEmpty)
-                _buildDetailRow('PAN क्रमांक:', firm.pan_number ?? ''),
+              _buildDetailRow('पिन कोड:', firm.pincode),
+              if (firm.gst_number != null)
+                _buildDetailRow('GST नंबर:', firm.gst_number!),
+              if (firm.pan_number != null)
+                _buildDetailRow('PAN नंबर:', firm.pan_number!),
             ],
           ),
         ),
@@ -424,25 +449,27 @@ class _FirmSetupScreenState extends State<FirmSetupScreen> {
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
             style: const TextStyle(
-              fontWeight: FontWeight.bold,
+              fontSize: 12,
               color: Colors.grey,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: Colors.black87,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
           ),
+          const Divider(height: 12),
         ],
       ),
     );
