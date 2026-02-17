@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../transaction/new_transaction_screen.dart';
 import '../master_data/master_entry_screen.dart'; // नवीन मास्टर एन्ट्री स्क्रीन
 import '../reports/reports_screen.dart'; // अहवाल स्क्रीन (पुढे बनवू)
@@ -8,6 +9,7 @@ import '../firm_setup/firm_setup_screen.dart';
 import '../recovery/payment_entry_screen.dart'; // ✅ जमा एन्ट्री स्क्रीन
 import '../recovery/daily_payment_report_screen.dart'; // ✅ आज का जमा रिपोर्ट
 import '../recovery/payment_list_screen.dart'; // ✅ जमा यादी
+import '../../core/active_firm_provider.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -27,12 +29,52 @@ class DashboardScreen extends StatelessWidget {
             padding: EdgeInsets.zero,
             children: [
               DrawerHeader(
-                decoration: const BoxDecoration(color: Colors.green),
-                child: const Text(
-                  'भारत मंडी',
-                  style: TextStyle(color: Colors.white, fontSize: 24),
-                ),
-              ),
+                  decoration: const BoxDecoration(color: Colors.green),
+                  child: Consumer<ActiveFirmProvider>(
+                    builder: (context, firmProvider, _) {
+                      if (firmProvider.isLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        );
+                      }
+
+                      final firmName =
+                          firmProvider.activeFirm?.name ?? 'भारत मंडी';
+
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'भारत मंडी',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '🏢 $firmName',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  )),
               ListTile(
                 leading: const Icon(Icons.dashboard),
                 title: const Text('डॅशबोर्ड'),

@@ -1,407 +1,215 @@
 import 'package:powersync/powersync.dart';
-import '../../features/firm_setup/firm_service.dart';
-import 'powersync_service.dart';
+import '../../core/services/powersync_service.dart';
 
-/// ✅ Helper service to fetch data filtered by active firm
-/// This ensures data isolation - each firm only sees its own data
+/// ✅ Production Ready Firm Data Service
+/// Uses DB active = 1 (NO Provider, NO BuildContext)
+
 class FirmDataService {
-  /// Get active firm ID
+  // ================= ACTIVE FIRM =================
+
   static Future<String?> getActiveFirmId() async {
     try {
-      final firm = await FirmService.getActiveFirm();
-      return firm?.id;
+      final data = await powerSyncDB.getAll(
+        'SELECT id FROM firms WHERE active = 1 LIMIT 1',
+      );
+
+      if (data.isNotEmpty) {
+        return data.first['id'] as String?;
+      }
+      return null;
     } catch (e) {
-      print('❌ Error getting active firm: $e');
+      print('❌ Error getting active firm id: $e');
       return null;
     }
   }
 
-  // ============ FARMERS ============
+  // ================= FARMERS =================
 
-  /// Get all farmers for active firm
   static Future<List<Map<String, dynamic>>> getFarmersForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return [];
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return [];
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM farmers WHERE firm_id = ? ORDER BY name ASC',
-        [firmId],
-      );
-
-      return data;
-    } catch (e) {
-      print('❌ Error loading farmers: $e');
-      return [];
-    }
+    return await powerSyncDB.getAll(
+      'SELECT * FROM farmers WHERE firm_id = ? ORDER BY name ASC',
+      [firmId],
+    );
   }
 
-  /// Get farmer by code for active firm
   static Future<Map<String, dynamic>?> getFarmerByCodeForActiveFirm(
       String code) async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return null;
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return null;
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM farmers WHERE firm_id = ? AND code = ?',
-        [firmId, code],
-      );
+    final data = await powerSyncDB.getAll(
+      'SELECT * FROM farmers WHERE firm_id = ? AND code = ?',
+      [firmId, code],
+    );
 
-      if (data.isNotEmpty) {
-        return data.first;
-      }
-      return null;
-    } catch (e) {
-      print('❌ Error loading farmer: $e');
-      return null;
-    }
+    return data.isNotEmpty ? data.first : null;
   }
 
-  // ============ BUYERS ============
+  // ================= BUYERS =================
 
-  /// Get all buyers for active firm
   static Future<List<Map<String, dynamic>>> getBuyersForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return [];
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return [];
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM buyers WHERE firm_id = ? ORDER BY name ASC',
-        [firmId],
-      );
-
-      return data;
-    } catch (e) {
-      print('❌ Error loading buyers: $e');
-      return [];
-    }
+    return await powerSyncDB.getAll(
+      'SELECT * FROM buyers WHERE firm_id = ? ORDER BY name ASC',
+      [firmId],
+    );
   }
 
-  /// Get buyer by code for active firm
   static Future<Map<String, dynamic>?> getBuyerByCodeForActiveFirm(
       String code) async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return null;
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return null;
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM buyers WHERE firm_id = ? AND code = ?',
-        [firmId, code],
-      );
+    final data = await powerSyncDB.getAll(
+      'SELECT * FROM buyers WHERE firm_id = ? AND code = ?',
+      [firmId, code],
+    );
 
-      if (data.isNotEmpty) {
-        return data.first;
-      }
-      return null;
-    } catch (e) {
-      print('❌ Error loading buyer: $e');
-      return null;
-    }
+    return data.isNotEmpty ? data.first : null;
   }
 
-  // ============ PRODUCE ============
+  // ================= PRODUCE =================
 
-  /// Get all produce for active firm
   static Future<List<Map<String, dynamic>>> getProduceForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return [];
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return [];
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM produce WHERE firm_id = ? ORDER BY name ASC',
-        [firmId],
-      );
-
-      return data;
-    } catch (e) {
-      print('❌ Error loading produce: $e');
-      return [];
-    }
+    return await powerSyncDB.getAll(
+      'SELECT * FROM produce WHERE firm_id = ? ORDER BY name ASC',
+      [firmId],
+    );
   }
 
-  /// Get produce by code for active firm
   static Future<Map<String, dynamic>?> getProduceByCodeForActiveFirm(
       String code) async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return null;
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return null;
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM produce WHERE firm_id = ? AND code = ?',
-        [firmId, code],
-      );
+    final data = await powerSyncDB.getAll(
+      'SELECT * FROM produce WHERE firm_id = ? AND code = ?',
+      [firmId, code],
+    );
 
-      if (data.isNotEmpty) {
-        return data.first;
-      }
-      return null;
-    } catch (e) {
-      print('❌ Error loading produce: $e');
-      return null;
-    }
+    return data.isNotEmpty ? data.first : null;
   }
 
-  // ============ AREAS ============
+  // ================= AREAS =================
 
-  /// Get all areas for active firm
   static Future<List<Map<String, dynamic>>> getAreasForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return [];
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return [];
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM areas WHERE firm_id = ? ORDER BY name ASC',
-        [firmId],
-      );
-
-      return data;
-    } catch (e) {
-      print('❌ Error loading areas: $e');
-      return [];
-    }
+    return await powerSyncDB.getAll(
+      'SELECT * FROM areas WHERE firm_id = ? ORDER BY name ASC',
+      [firmId],
+    );
   }
 
-  // ============ EXPENSE TYPES ============
+  // ================= EXPENSE TYPES =================
 
-  /// Get all expense types for active firm
   static Future<List<Map<String, dynamic>>>
       getExpenseTypesForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return [];
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return [];
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM expense_types WHERE firm_id = ? ORDER BY name ASC',
-        [firmId],
-      );
-
-      return data;
-    } catch (e) {
-      print('❌ Error loading expense types: $e');
-      return [];
-    }
+    return await powerSyncDB.getAll(
+      'SELECT * FROM expense_types WHERE firm_id = ? ORDER BY name ASC',
+      [firmId],
+    );
   }
 
-  // ============ TRANSACTIONS ============
+  // ================= TRANSACTIONS =================
 
-  /// Get all transactions for active firm
   static Future<List<Map<String, dynamic>>>
       getTransactionsForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return [];
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return [];
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM transactions WHERE firm_id = ? ORDER BY created_at DESC',
-        [firmId],
-      );
-
-      return data;
-    } catch (e) {
-      print('❌ Error loading transactions: $e');
-      return [];
-    }
+    return await powerSyncDB.getAll(
+      'SELECT * FROM transactions WHERE firm_id = ? ORDER BY created_at DESC',
+      [firmId],
+    );
   }
 
-  // ============ PAYMENTS ============
+  // ================= PAYMENTS =================
 
-  /// Get all payments for active firm
   static Future<List<Map<String, dynamic>>> getPaymentsForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        print('⚠️ No active firm found');
-        return [];
-      }
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return [];
 
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM payments WHERE firm_id = ? ORDER BY created_at DESC',
-        [firmId],
-      );
-
-      return data;
-    } catch (e) {
-      print('❌ Error loading payments: $e');
-      return [];
-    }
+    return await powerSyncDB.getAll(
+      'SELECT * FROM payments WHERE firm_id = ? ORDER BY created_at DESC',
+      [firmId],
+    );
   }
 
-  // ============ INSERT WITH FIRM_ID ============
+  // ================= INSERT WITH firm_id =================
 
-  /// Insert record with active firm_id
   static Future<void> insertRecordWithFirmId(
     String table,
     Map<String, dynamic> data,
   ) async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        throw Exception('No active firm found');
-      }
-
-      data['firm_id'] = firmId;
-      await insertRecord(table, data);
-    } catch (e) {
-      print('❌ Error inserting record: $e');
-      rethrow;
+    final firmId = await getActiveFirmId();
+    if (firmId == null) {
+      throw Exception('No active firm selected');
     }
+
+    data['firm_id'] = firmId;
+    await insertRecord(table, data);
   }
 
-  // ============ UPDATE BALANCES ============
+  // ================= UPDATE BALANCES =================
 
-  /// Update buyer balance for active firm
   static Future<void> updateBuyerBalanceForActiveFirm(
     String buyerCode,
     double newBalance,
   ) async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        throw Exception('No active firm found');
-      }
-
-      await powerSyncDB.execute(
-        'UPDATE buyers SET opening_balance = ?, updated_at = ? WHERE firm_id = ? AND code = ?',
-        [newBalance, DateTime.now().toIso8601String(), firmId, buyerCode],
-      );
-    } catch (e) {
-      print('❌ Error updating buyer balance: $e');
-      rethrow;
+    final firmId = await getActiveFirmId();
+    if (firmId == null) {
+      throw Exception('No active firm selected');
     }
+
+    await powerSyncDB.execute(
+      'UPDATE buyers SET opening_balance = ?, updated_at = ? WHERE firm_id = ? AND code = ?',
+      [newBalance, DateTime.now().toIso8601String(), firmId, buyerCode],
+    );
   }
 
-  /// Update farmer balance for active firm
   static Future<void> updateFarmerBalanceForActiveFirm(
     String farmerCode,
     double newBalance,
   ) async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) {
-        throw Exception('No active firm found');
-      }
-
-      await powerSyncDB.execute(
-        'UPDATE farmers SET opening_balance = ?, updated_at = ? WHERE firm_id = ? AND code = ?',
-        [newBalance, DateTime.now().toIso8601String(), firmId, farmerCode],
-      );
-    } catch (e) {
-      print('❌ Error updating farmer balance: $e');
-      rethrow;
+    final firmId = await getActiveFirmId();
+    if (firmId == null) {
+      throw Exception('No active firm selected');
     }
+
+    await powerSyncDB.execute(
+      'UPDATE farmers SET opening_balance = ?, updated_at = ? WHERE firm_id = ? AND code = ?',
+      [newBalance, DateTime.now().toIso8601String(), firmId, farmerCode],
+    );
   }
 
-  // ============ COUNT METHODS ============
+  // ================= COUNT =================
 
-  /// Get count of farmers for active firm
-  static Future<int> getFarmerCountForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) return 0;
+  static Future<int> getCountForActiveFirm(String table) async {
+    final firmId = await getActiveFirmId();
+    if (firmId == null) return 0;
 
-      final result = await powerSyncDB.getAll(
-        'SELECT COUNT(*) as count FROM farmers WHERE firm_id = ?',
-        [firmId],
-      );
+    final result = await powerSyncDB.getAll(
+      'SELECT COUNT(*) as count FROM $table WHERE firm_id = ?',
+      [firmId],
+    );
 
-      if (result.isNotEmpty) {
-        return (result.first['count'] as int?) ?? 0;
-      }
-      return 0;
-    } catch (e) {
-      print('❌ Error getting farmer count: $e');
-      return 0;
+    if (result.isNotEmpty) {
+      return (result.first['count'] as int?) ?? 0;
     }
-  }
 
-  /// Get count of buyers for active firm
-  static Future<int> getBuyerCountForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) return 0;
-
-      final result = await powerSyncDB.getAll(
-        'SELECT COUNT(*) as count FROM buyers WHERE firm_id = ?',
-        [firmId],
-      );
-
-      if (result.isNotEmpty) {
-        return (result.first['count'] as int?) ?? 0;
-      }
-      return 0;
-    } catch (e) {
-      print('❌ Error getting buyer count: $e');
-      return 0;
-    }
-  }
-
-  /// Get count of transactions for active firm
-  static Future<int> getTransactionCountForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) return 0;
-
-      final result = await powerSyncDB.getAll(
-        'SELECT COUNT(*) as count FROM transactions WHERE firm_id = ?',
-        [firmId],
-      );
-
-      if (result.isNotEmpty) {
-        return (result.first['count'] as int?) ?? 0;
-      }
-      return 0;
-    } catch (e) {
-      print('❌ Error getting transaction count: $e');
-      return 0;
-    }
-  }
-
-  /// Get count of payments for active firm
-  static Future<int> getPaymentCountForActiveFirm() async {
-    try {
-      final firmId = await getActiveFirmId();
-      if (firmId == null) return 0;
-
-      final result = await powerSyncDB.getAll(
-        'SELECT COUNT(*) as count FROM payments WHERE firm_id = ?',
-        [firmId],
-      );
-
-      if (result.isNotEmpty) {
-        return (result.first['count'] as int?) ?? 0;
-      }
-      return 0;
-    } catch (e) {
-      print('❌ Error getting payment count: $e');
-      return 0;
-    }
+    return 0;
   }
 }

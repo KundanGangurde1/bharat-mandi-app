@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'firm_model.dart';
 import 'firm_service.dart';
 import 'firm_form_screen.dart';
+import '../../core/active_firm_provider.dart';
 
 class FirmListScreen extends StatefulWidget {
   const FirmListScreen({super.key});
@@ -41,7 +43,7 @@ class _FirmListScreenState extends State<FirmListScreen> {
               Navigator.pop(context);
               try {
                 // Convert id to String for PowerSync
-                await FirmService.deleteFirm(firm.id?.toString() ?? '');
+                await FirmService.deleteFirm(firm.id.toString());
                 _refreshList();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -274,6 +276,58 @@ class _FirmListScreenState extends State<FirmListScreen> {
                             ).then((_) => _refreshList());
                           });
                         },
+                      ),
+                      PopupMenuItem(
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              size: 20,
+                              color: firm.active ? Colors.green : Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              firm.active ? 'सक्रिय (Active)' : 'सक्रिय करा',
+                              style: TextStyle(
+                                color:
+                                    firm.active ? Colors.green : Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                        onTap: firm.active
+                            ? null
+                            : () {
+                                Future.delayed(Duration.zero, () async {
+                                  try {
+                                    final provider =
+                                        Provider.of<ActiveFirmProvider>(context,
+                                            listen: false);
+                                    await provider.setActiveFirm(firm);
+
+                                    if (!mounted) return;
+
+                                    Navigator.pop(
+                                        context); // Close FirmListScreen
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content:
+                                            Text('${firm.name} सक्रिय झाले'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('त्रुटी: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                });
+                              },
                       ),
                       PopupMenuItem(
                         child: const Row(

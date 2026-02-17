@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'firm_model.dart';
 import 'firm_service.dart';
+import '../../core/active_firm_provider.dart';
 
 class FirmFormScreen extends StatefulWidget {
   final Firm? firm;
+  final bool isFirstSetup;
 
-  const FirmFormScreen({super.key, this.firm});
+  const FirmFormScreen({
+    super.key,
+    this.firm,
+    this.isFirstSetup = false,
+  });
 
   @override
   State<FirmFormScreen> createState() => _FirmFormScreenState();
@@ -67,20 +74,16 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
   }
 
   Future<void> _saveFirm() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      if (widget.firm == null) {
-        // नवीन फर्म जोडा
-        final now = DateTime.now().toIso8601String();
+      final now = DateTime.now().toIso8601String();
 
+      if (widget.firm == null) {
         final newFirm = Firm(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
           name: _nameController.text.trim(),
           code: _codeController.text.trim(),
           owner_name: _ownerNameController.text.trim(),
@@ -96,13 +99,23 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
           pan_number: _panController.text.trim().isNotEmpty
               ? _panController.text.trim()
               : null,
+          active: false,
           created_at: now,
-          updated_at: now, // ✅ REQUIRED
+          updated_at: now,
         );
 
-        await FirmService.addFirm(newFirm);
+        final firmId = await FirmService.addFirm(newFirm);
+
+        final createdFirm = await FirmService.getFirmById(firmId);
+
+        if (createdFirm != null) {
+          final provider =
+              Provider.of<ActiveFirmProvider>(context, listen: false);
+          await provider.setActiveFirm(createdFirm);
+        }
 
         if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('फर्म यशस्वीरित्या जोडला गेला'),
@@ -110,7 +123,7 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
           ),
         );
       } else {
-        // फर्म update करा
+        // 🔥 UPDATE FIRM
         final updatedFirm = widget.firm!.copyWith(
           name: _nameController.text.trim(),
           code: _codeController.text.trim(),
@@ -127,12 +140,13 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
           pan_number: _panController.text.trim().isNotEmpty
               ? _panController.text.trim()
               : null,
-          updated_at: DateTime.now().toIso8601String(), // ✅ REQUIRED
+          updated_at: now,
         );
 
         await FirmService.updateFirm(updatedFirm);
 
         if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('फर्म यशस्वीरित्या अपडेट झाले'),
@@ -142,9 +156,13 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
       }
 
       if (!mounted) return;
-      Navigator.pop(context);
+
+      if (!widget.isFirstSetup) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: $e'),
@@ -152,9 +170,7 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
         ),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -162,235 +178,85 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.firm == null ? 'नवीन फर्म' : 'फर्म संपादित करा'),
-        centerTitle: true,
+        title: Text(
+          widget.isFirstSetup
+              ? 'पहिली फर्म तयार करा'
+              : (widget.firm == null ? 'नवीन फर्म' : 'फर्म संपादित करा'),
+        ),
+        automaticallyImplyLeading: !widget.isFirstSetup,
         backgroundColor: Colors.deepOrange,
         foregroundColor: Colors.white,
-        elevation: 4,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // फर्मचे नाव
               _buildTextField(
                 controller: _nameController,
-                label: 'फर्मचे नाव',
+                label: 'फर्मचे नाव *',
                 hint: 'फर्मचे नाव प्रविष्ट करा',
                 icon: Icons.business,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'फर्मचे नाव आवश्यक आहे';
-                  }
-                  return null;
-                },
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'फर्मचे नाव आवश्यक आहे' : null,
               ),
-
               const SizedBox(height: 16),
-
-              // फर्म कोड (optional)
-              _buildTextField(
-                controller: _codeController,
-                label: 'फर्म कोड (वैकल्पिक)',
-                hint: 'फर्मचा अद्वितीय कोड',
-                icon: Icons.code,
-              ),
-
-              const SizedBox(height: 16),
-
-              // मालकाचे नाव
               _buildTextField(
                 controller: _ownerNameController,
-                label: 'मालकाचे नाव',
-                hint: 'मालकाचे नाव प्रविष्ट करा',
+                label: 'मालकाचे नाव *',
+                hint: 'मालकाचे नाव',
                 icon: Icons.person,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'मालकाचे नाव आवश्यक आहे';
-                  }
-                  return null;
-                },
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'मालकाचे नाव आवश्यक आहे' : null,
               ),
-
               const SizedBox(height: 16),
-
-              // फोन नंबर
               _buildTextField(
                 controller: _phoneController,
-                label: 'फोन नंबर',
-                hint: '१०-अंकी फोन नंबर',
+                label: 'फोन नंबर *',
+                hint: '१०-अंकी नंबर',
                 icon: Icons.phone,
                 keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'फोन नंबर आवश्यक आहे';
-                  }
-                  if (value!.length != 10) {
-                    return 'फोन नंबर १० अंकांचा असावा';
-                  }
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'फोन नंबर आवश्यक आहे';
+                  if (v.length != 10) return 'फोन नंबर १० अंकांचा असावा';
                   return null;
                 },
               ),
-
               const SizedBox(height: 16),
 
-              // ईमेल
+              // Optional Fields Below
+              _buildTextField(
+                controller: _codeController,
+                label: 'फर्म कोड',
+                hint: 'वैकल्पिक',
+                icon: Icons.code,
+              ),
+              const SizedBox(height: 16),
               _buildTextField(
                 controller: _emailController,
                 label: 'ईमेल',
-                hint: 'ईमेल पत्ता प्रविष्ट करा',
+                hint: 'वैकल्पिक',
                 icon: Icons.email,
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'ईमेल आवश्यक आहे';
-                  }
-                  if (!value!.contains('@')) {
-                    return 'वैध ईमेल प्रविष्ट करा';
-                  }
-                  return null;
-                },
               ),
-
-              const SizedBox(height: 16),
-
-              // पत्ता
-              _buildTextField(
-                controller: _addressController,
-                label: 'पत्ता',
-                hint: 'संपूर्ण पत्ता प्रविष्ट करा',
-                icon: Icons.location_on,
-                maxLines: 2,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'पत्ता आवश्यक आहे';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // शहर
-              _buildTextField(
-                controller: _cityController,
-                label: 'शहर',
-                hint: 'शहराचे नाव प्रविष्ट करा',
-                icon: Icons.location_city,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'शहर आवश्यक आहे';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // राज्य
-              _buildTextField(
-                controller: _stateController,
-                label: 'राज्य',
-                hint: 'राज्याचे नाव प्रविष्ट करा',
-                icon: Icons.map,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'राज्य आवश्यक आहे';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // पिनकोड
-              _buildTextField(
-                controller: _pincodeController,
-                label: 'पिनकोड',
-                hint: '६-अंकी पिनकोड',
-                icon: Icons.pin,
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'पिनकोड आवश्यक आहे';
-                  }
-                  if (value!.length != 6) {
-                    return 'पिनकोड ६ अंकांचा असावा';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // GST नंबर
-              _buildTextField(
-                controller: _gstController,
-                label: 'GST क्रमांक (वैकल्पिक)',
-                hint: 'GST क्रमांक प्रविष्ट करा',
-                icon: Icons.receipt,
-              ),
-
-              const SizedBox(height: 16),
-
-              // PAN नंबर
-              _buildTextField(
-                controller: _panController,
-                label: 'PAN क्रमांक (वैकल्पिक)',
-                hint: 'PAN क्रमांक प्रविष्ट करा',
-                icon: Icons.credit_card,
-              ),
-
               const SizedBox(height: 32),
 
-              // Save Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
+                child: ElevatedButton(
                   onPressed: _isLoading ? null : _saveFirm,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Icon(Icons.save),
-                  label: Text(
-                    _isLoading
-                        ? 'सेव होत आहे...'
-                        : (widget.firm == null ? 'फर्म जोडा' : 'अपडेट करा'),
-                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepOrange,
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'सेव करा',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
               ),
-
-              const SizedBox(height: 12),
-
-              // Cancel Button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                  label: const Text('रद्द करा'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -404,7 +270,6 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
     required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
@@ -416,19 +281,8 @@ class _FirmFormScreenState extends State<FirmFormScreen> {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.grey),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.deepOrange, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey[50],
       ),
       keyboardType: keyboardType,
-      maxLines: maxLines,
       validator: validator,
     );
   }

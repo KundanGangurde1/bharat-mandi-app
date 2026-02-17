@@ -329,14 +329,34 @@ class _FirmSetupScreenState extends State<FirmSetupScreen> {
               return ListTile(
                 title: Text(firm.name),
                 subtitle: Text(firm.owner_name),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${firm.name} सक्रिय झाले'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+
+                  try {
+                    await FirmService.setActiveFirm(firm.id);
+
+                    setState(() {
+                      _firmCount = FirmService.getFirmCount();
+                    });
+
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${firm.name} सक्रिय झाले'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('त्रुटी: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 },
               );
             },

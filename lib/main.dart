@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'core/services/powersync_service.dart';
 import 'core/expense_controller.dart';
 import 'features/dashboard/dashboard_screen.dart';
+import 'core/active_firm_provider.dart';
+import 'app/AppRootScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,9 +30,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // ✅ ExpenseController Provider
         ChangeNotifierProvider(
           create: (_) => ExpenseController(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ActiveFirmProvider()..loadActiveFirm(),
         ),
       ],
       child: MaterialApp(
@@ -56,7 +60,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const DashboardScreen(),
+        home: const AppRootScreen(),
       ),
     );
   }

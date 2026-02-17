@@ -7,10 +7,9 @@ class FirmService {
   // नवीन firm add करा
   static Future<String> addFirm(Firm firm) async {
     try {
-      // ✅ 1. ID स्वतः generate करा
-      final String firmId = DateTime.now().millisecondsSinceEpoch.toString();
+      final String firmId =
+          firm.id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
-      // ✅ 2. insertRecord void आहे — return expect करू नका
       await insertRecord(tableName, {
         'id': firmId,
         'name': firm.name,
@@ -24,17 +23,13 @@ class FirmService {
         'pincode': firm.pincode,
         'gst_number': firm.gst_number,
         'pan_number': firm.pan_number,
-        'active': firm.active ? 1 : 0,
+        'active': 0, // 🔥 Always 0 here
         'created_at': firm.created_at,
         'updated_at': DateTime.now().toIso8601String(),
       });
 
-      print('✅ Firm added with ID: $firmId');
-
-      // ✅ 3. String ID return करा
       return firmId;
     } catch (e) {
-      print("❌ Error adding firm: $e");
       rethrow;
     }
   }
@@ -74,16 +69,17 @@ class FirmService {
   // Active firm मिळवा (सर्वात नवीन)
   static Future<Firm?> getActiveFirm() async {
     try {
-      final maps = await powerSyncDB.getAll(
-        'SELECT * FROM $tableName WHERE active = 1 ORDER BY created_at DESC LIMIT 1',
+      final result = await powerSyncDB.getAll(
+        'SELECT * FROM firms WHERE active = 1 LIMIT 1',
       );
 
-      if (maps.isNotEmpty) {
-        return Firm.fromMap(maps.first);
+      if (result.isNotEmpty) {
+        return Firm.fromMap(result.first);
       }
+
       return null;
     } catch (e) {
-      print("❌ Error getting active firm: $e");
+      print('❌ Error getting active firm: $e');
       return null;
     }
   }
@@ -121,7 +117,26 @@ class FirmService {
   // Firm delete करा
   static Future<void> deleteFirm(String id) async {
     try {
+      // 1️⃣ Check if firm is active
+      final firm = await getFirmById(id);
+
+      if (firm == null) {
+        throw Exception('Firm not found');
+      }
+
+      if (firm.active) {
+        throw Exception('सक्रिय फर्म हटवू शकत नाही');
+      }
+
+      // 2️⃣ Optional: Prevent deleting last firm
+      final count = await getFirmCount();
+      if (count <= 1) {
+        throw Exception('किमान एक फर्म असणे आवश्यक आहे');
+      }
+
+      // 3️⃣ Delete
       await deleteRecord(tableName, id);
+
       print('✅ Firm deleted: $id');
     } catch (e) {
       print("❌ Error deleting firm: $e");
@@ -158,6 +173,25 @@ class FirmService {
     } catch (e) {
       print("❌ Error getting firm count: $e");
       return 0;
+    }
+  }
+
+  // Firm को active करा (एक वेळी एकच active असू शकतो)
+  static Future<void> setActiveFirm(String firmId) async {
+    try {
+      // First make all firms inactive
+      await powerSyncDB.execute(
+        'UPDATE firms SET active = 0',
+      );
+
+      // Then activate selected firm
+      await powerSyncDB.execute(
+        'UPDATE firms SET active = 1 WHERE id = ?',
+        [firmId],
+      );
+    } catch (e) {
+      print('❌ Error setting active firm: $e');
+      rethrow;
     }
   }
 }

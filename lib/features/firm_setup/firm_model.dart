@@ -1,5 +1,5 @@
 class Firm {
-  final String? id;
+  final String id;
   final String name;
   final String code;
   final String owner_name;
@@ -16,7 +16,7 @@ class Firm {
   final String updated_at;
 
   Firm({
-    this.id,
+    required this.id,
     required this.name,
     required this.code,
     required this.owner_name,
@@ -33,7 +33,6 @@ class Firm {
     required this.updated_at,
   });
 
-  // Convert to Map for database
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -54,10 +53,9 @@ class Firm {
     };
   }
 
-  // Create from Map
   factory Firm.fromMap(Map<String, dynamic> map) {
     return Firm(
-      id: map['id']?.toString(),
+      id: map['id'].toString(),
       name: map['name']?.toString() ?? '',
       code: map['code']?.toString() ?? '',
       owner_name: map['owner_name']?.toString() ?? '',
@@ -75,7 +73,6 @@ class Firm {
     );
   }
 
-  // Copy with changes
   Firm copyWith({
     String? id,
     String? name,
@@ -114,6 +111,6 @@ class Firm {
 
   @override
   String toString() {
-    return 'Firm(id: $id, name: $name, code: $code, owner_name: $owner_name)';
+    return 'Firm(id: $id, name: $name, code: $code)';
   }
 }
