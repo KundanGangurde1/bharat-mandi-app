@@ -180,7 +180,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.settings),
-                title: const Text('Settings'),
+                title: const Text('सेटिंग्ज'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(

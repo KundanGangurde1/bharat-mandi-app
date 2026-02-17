@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/services/firm_data_service.dart'; // ✅ NEW
 import '../../features/buyer/buyer_ledger_pdf.dart';
 
 class BuyerLedgerScreen extends StatefulWidget {
@@ -63,17 +64,24 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
     setState(() => isLoading = true);
 
     try {
+      // ✅ NEW: Get active firm ID
+      final firmId = await FirmDataService.getActiveFirmId();
+      if (firmId == null) {
+        throw Exception('कोणताही सक्रिय फर्म नाही');
+      }
+
+      // ✅ FIXED: Added firm_id filter
       final buyerRes = await powerSyncDB.getAll(
-        'SELECT opening_balance FROM buyers WHERE code = ?',
-        [widget.buyerCode],
+        'SELECT opening_balance FROM buyers WHERE firm_id = ? AND code = ?',
+        [firmId, widget.buyerCode],
       );
 
       double openingBalance =
           (buyerRes.first['opening_balance'] as num?)?.toDouble() ?? 0.0;
 
       String dateFilter = '';
-      List<dynamic> txnParams = [widget.buyerCode];
-      List<dynamic> payParams = [widget.buyerCode];
+      List<dynamic> txnParams = [firmId, widget.buyerCode]; // ✅ Added firmId
+      List<dynamic> payParams = [firmId, widget.buyerCode]; // ✅ Added firmId
 
       if (fromDate != null) {
         final d = DateFormat('yyyy-MM-dd').format(fromDate!);
@@ -95,19 +103,21 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
       if (fromDate != null) {
         final d = DateFormat('yyyy-MM-dd').format(fromDate!);
 
+        // ✅ FIXED: Added firm_id filter
         final prevTxn = await powerSyncDB.getAll('''
           SELECT SUM(net) as total
           FROM transactions
-          WHERE buyer_code = ?
+          WHERE firm_id = ? AND buyer_code = ?
           AND date(created_at) < date(?)
-        ''', [widget.buyerCode, d]);
+        ''', [firmId, widget.buyerCode, d]);
 
+        // ✅ FIXED: Added firm_id filter
         final prevPay = await powerSyncDB.getAll('''
           SELECT SUM(amount) as total
           FROM payments
-          WHERE buyer_code = ?
+          WHERE firm_id = ? AND buyer_code = ?
           AND date(created_at) < date(?)
-        ''', [widget.buyerCode, d]);
+        ''', [firmId, widget.buyerCode, d]);
 
         final txnTotal = (prevTxn.first['total'] as num?)?.toDouble() ?? 0.0;
         final payTotal = (prevPay.first['total'] as num?)?.toDouble() ?? 0.0;
@@ -116,6 +126,7 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
         previousBalance -= payTotal;
       }
 
+      // ✅ FIXED: Added firm_id filter
       final transactions = await powerSyncDB.getAll('''
         SELECT 
           created_at AS date,
@@ -123,10 +134,11 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
           parchi_id AS ref,
           net AS amount
         FROM transactions
-        WHERE buyer_code = ?
+        WHERE firm_id = ? AND buyer_code = ?
         $dateFilter
       ''', txnParams);
 
+      // ✅ FIXED: Added firm_id filter
       final payments = await powerSyncDB.getAll('''
         SELECT 
           created_at AS date,
@@ -134,7 +146,7 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
           'जमा (' || payment_mode || ')' AS ref,
           amount AS amount
         FROM payments
-        WHERE buyer_code = ?
+        WHERE firm_id = ? AND buyer_code = ?
         $dateFilter
       ''', payParams);
 
@@ -186,6 +198,11 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
     } catch (e) {
       print('❌ Ledger error: $e');
       setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('त्रुटी: $e')),
+        );
+      }
     }
   }
 

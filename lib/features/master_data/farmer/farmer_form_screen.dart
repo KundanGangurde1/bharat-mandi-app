@@ -43,6 +43,10 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
     try {
       // ✅ NEW: Get farmer by ID for active firm
       final firmId = await FirmDataService.getActiveFirmId();
+      if (firmId == null) {
+        throw Exception('No active firm found');
+      }
+
       final data = await powerSyncDB.getAll(
         'SELECT * FROM farmers WHERE firm_id = ? AND id = ?',
         [firmId, widget.farmerId],
@@ -57,11 +61,10 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
         addressCtrl.text = farmerData!['address']?.toString() ?? '';
         balanceCtrl.text = farmerData!['opening_balance']?.toString() ?? '0';
 
-        // ✅ NEW: Check if code is used in transactions for active firm
-        final firmId2 = await FirmDataService.getActiveFirmId();
+        // ✅ FIXED: Reuse firmId instead of fetching again
         final isUsedResult = await powerSyncDB.getAll(
           'SELECT COUNT(*) as count FROM transactions WHERE firm_id = ? AND farmer_code = ?',
-          [firmId2, farmerData!['code']?.toString() ?? ''],
+          [firmId, farmerData!['code']?.toString() ?? ''],
         );
 
         final isUsed =
@@ -92,14 +95,14 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
     // Validate code uniqueness (except for edit mode with same code)
     if (!isEditMode || code != farmerData?['code']) {
       try {
-        // ✅ NEW: Check code uniqueness for active firm only
-        final firmId3 = await FirmDataService.getActiveFirmId();
-        if (firmId3 == null) {
+        // ✅ FIXED: Get firm_id once at the start
+        final firmId = await FirmDataService.getActiveFirmId();
+        if (firmId == null) {
           throw Exception('No active firm found');
         }
         final uniqueResult = await powerSyncDB.getAll(
           'SELECT COUNT(*) as count FROM farmers WHERE firm_id = ? AND code = ?',
-          [firmId3, code],
+          [firmId, code],
         );
 
         final isUnique =
