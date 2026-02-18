@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../transaction/new_transaction_screen.dart';
-import '../master_data/master_entry_screen.dart'; // नवीन मास्टर एन्ट्री स्क्रीन
-import '../reports/reports_screen.dart'; // अहवाल स्क्रीन (पुढे बनवू)
+import '../master_data/master_entry_screen.dart';
+import '../reports/reports_screen.dart';
 import '../settings/settings_screen.dart';
 import '../transaction/pavti_list_screen.dart';
 import '../firm_setup/firm_setup_screen.dart';
-import '../recovery/payment_entry_screen.dart'; // ✅ जमा एन्ट्री स्क्रीन
-import '../recovery/daily_payment_report_screen.dart'; // ✅ आज का जमा रिपोर्ट
-import '../recovery/payment_list_screen.dart'; // ✅ जमा यादी
+import '../recovery/payment_entry_screen.dart';
+import '../recovery/daily_payment_report_screen.dart';
+import '../recovery/payment_list_screen.dart';
 import '../../core/active_firm_provider.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -107,38 +107,14 @@ class DashboardScreen extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.bar_chart),
-                title: const Text('आज का जमा रिपोर्ट'),
+                leading: const Icon(Icons.list),
+                title: const Text('पावती यादी'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const DailyPaymentReportScreen()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.receipt_long),
-                title: const Text('जमा यादी'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const PaymentListScreen()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.category),
-                title: const Text('मास्टर एन्ट्री'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const MasterEntryScreen()),
+                        builder: (context) => const PavtiListScreen()),
                   );
                 },
               ),
@@ -155,19 +131,20 @@ class DashboardScreen extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.list),
-                title: const Text('पावती यादी'),
+                leading: const Icon(Icons.category),
+                title: const Text('मास्टर एन्ट्री'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const PavtiListScreen()),
+                        builder: (context) => const MasterEntryScreen()),
                   );
                 },
               ),
+              const Divider(),
               ListTile(
-                leading: const Icon(Icons.business_center),
+                leading: const Icon(Icons.business),
                 title: const Text('फर्म सेटअप'),
                 onTap: () {
                   Navigator.pop(context);
@@ -195,7 +172,7 @@ class DashboardScreen extends StatelessWidget {
         ),
         body: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -268,54 +245,6 @@ class DashboardScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
-
-                // तुझ्या जुन्या डॅशबोर्ड कार्ड्स (आजचा सारांश) – तसेच ठेवले
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('आजचा सारांश',
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('एकूण पावत्या:'),
-                            const Text('१२',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('एकूण रक्कम:'),
-                            const Text('₹१,२५,०००',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('थकबाकी:'),
-                            const Text('₹१५,०००',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.red)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -339,8 +268,9 @@ class DashboardScreen extends StatelessWidget {
             Icon(icon, size: 48, color: Colors.green),
             const SizedBox(height: 8),
             Text(title,
+                textAlign: TextAlign.center,
                 style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           ],
         ),
       ),

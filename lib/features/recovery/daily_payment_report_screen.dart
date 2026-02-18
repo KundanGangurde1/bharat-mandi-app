@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/services/powersync_service.dart';
-import '../../core/services/firm_data_service.dart'; // ✅ NEW
+import '../../core/services/firm_data_service.dart';
+import '../../core/utils/dashboard_helper.dart';
 
 class DailyPaymentReportScreen extends StatefulWidget {
   const DailyPaymentReportScreen({super.key});
@@ -120,59 +121,6 @@ class _DailyPaymentReportScreenState extends State<DailyPaymentReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Summary Card
-                    Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'आज का सारांश',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('एकूण जमा:'),
-                                Text(
-                                  '₹${totalPaymentAmount.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('एकूण व्यवहार:'),
-                                Text(
-                                  '${transactionHistory.length}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
                     // Payments Section
                     if (dailyPayments.isNotEmpty) ...[
                       const Text(
@@ -210,10 +158,207 @@ class _DailyPaymentReportScreenState extends State<DailyPaymentReportScreen> {
                       ),
                     ] else
                       const Center(child: Text('आज कोणताही जमा नाही')),
+
+                    const SizedBox(height: 32),
+
+                    // ✅ आजचा सारांश - Summary Card at Bottom
+                    const Text(
+                      'आजचा सारांश',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: DashboardHelper.getTodaysSummary(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            child: const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'त्रुटी: डेटा लोड होऊ शकला नाही',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _loadDailyPaymentReport();
+                                      });
+                                    },
+                                    child: const Text('पुन्हा प्रयत्न करा'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        final data = snapshot.data ?? {};
+                        final paymentCount = data['paymentCount'] as int? ?? 0;
+                        final creditSales =
+                            data['creditSales'] as double? ?? 0.0;
+                        final cashSales = data['cashSales'] as double? ?? 0.0;
+                        final totalTransactions =
+                            data['totalTransactions'] as double? ?? 0.0;
+                        final paymentAmount =
+                            data['paymentAmount'] as double? ?? 0.0;
+
+                        return Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.green.withOpacity(0.05),
+                                  Colors.blue.withOpacity(0.05),
+                                ],
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Row 1: एकुण पावती & आजची थकबाकी
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: _buildSummaryRow(
+                                          label: 'एकुण पावती:',
+                                          value: paymentCount.toString(),
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: _buildSummaryRow(
+                                          label: 'आजची थकबाकी:',
+                                          value: DashboardHelper.formatCurrency(
+                                              creditSales),
+                                          color: Colors.orange,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Row 2: आजची रोखविक्री & आजचा व्यापार
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: _buildSummaryRow(
+                                          label: 'आजची रोखविक्री:',
+                                          value: DashboardHelper.formatCurrency(
+                                              cashSales),
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: _buildSummaryRow(
+                                          label: 'आजचा व्यापार:',
+                                          value: DashboardHelper.formatCurrency(
+                                              totalTransactions),
+                                          color: Colors.purple,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Row 3: आजची वसूली (Full Width)
+                                  _buildSummaryRow(
+                                    label: 'आजची वसूली:',
+                                    value: DashboardHelper.formatCurrency(
+                                        paymentAmount),
+                                    color: Colors.red,
+                                    isFullWidth: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  // ✅ Summary row widget
+  Widget _buildSummaryRow({
+    required String label,
+    required String value,
+    required Color color,
+    bool isFullWidth = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
