@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/services/powersync_service.dart';
 import '../../../core/services/firm_data_service.dart'; // ✅ NEW
 import 'payment_model.dart';
 import 'payment_detail_screen.dart';
+import 'payment_ledger_pdf.dart';
 
 class PaymentEntryScreen extends StatefulWidget {
   const PaymentEntryScreen({super.key});
@@ -128,6 +130,118 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         amountCtrl.clear();
       });
     });
+  }
+
+  /// Generate payment PDF preview
+  Future<void> _generatePdfPreview() async {
+    if (currentPayment == null) return;
+
+    try {
+      final ledger = await _fetchBuyerLedger(buyerCode);
+
+      await PaymentLedgerPdf.generatePreview(
+        firmName: 'Bharat Mandi',
+        buyerName: buyerName,
+        buyerCode: buyerCode,
+        paymentId: currentPayment!.id ?? '',
+        amount: currentPayment!.amount,
+        paymentMode: currentPayment!.payment_mode,
+        reference: currentPayment!.reference_no ?? 'N/A',
+        paymentDate: DateTime.parse(currentPayment!.created_at),
+        openingBalance: openingBalance,
+        remainingBalance: remainingBalance,
+        ledger: ledger,
+      );
+    } catch (e) {
+      print('❌ Error generating PDF: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF तयार करण्यात त्रुटी: $e')),
+      );
+    }
+  }
+
+  /// Share payment receipt
+  Future<void> _sharePayment() async {
+    if (currentPayment == null) return;
+
+    try {
+      final ledger = await _fetchBuyerLedger(buyerCode);
+
+      final file = await PaymentLedgerPdf.generateFile(
+        firmName: 'Bharat Mandi',
+        buyerName: buyerName,
+        buyerCode: buyerCode,
+        paymentId: currentPayment!.id ?? '',
+        amount: currentPayment!.amount,
+        paymentMode: currentPayment!.payment_mode,
+        reference: currentPayment!.reference_no ?? 'N/A',
+        paymentDate: DateTime.parse(currentPayment!.created_at),
+        openingBalance: openingBalance,
+        remainingBalance: remainingBalance,
+        ledger: ledger,
+      );
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'वसूली पावती – $buyerName',
+      );
+    } catch (e) {
+      print('❌ Error sharing payment: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('शेयर करण्यात त्रुटी: $e')),
+      );
+    }
+  }
+
+  /// Fetch buyer ledger for PDF
+  Future<List<Map<String, dynamic>>> _fetchBuyerLedger(String buyerCode) async {
+    try {
+      final firmId = await FirmDataService.getActiveFirmId();
+
+      final transactionResults = await powerSyncDB.getAll(
+        '''SELECT created_at as date, 'विक्री' as type, parchi_id as ref, net as udhari, 0.0 as jama
+           FROM transactions WHERE firm_id = ? AND buyer_code = ? ORDER BY created_at DESC LIMIT 10''',
+        [firmId, buyerCode],
+      );
+
+      final paymentResults = await powerSyncDB.getAll(
+        '''SELECT created_at as date, 'वसूली' as type, id as ref, 0.0 as udhari, amount as jama
+           FROM payments WHERE firm_id = ? AND buyer_code = ? ORDER BY created_at DESC LIMIT 10''',
+        [firmId, buyerCode],
+      );
+
+      // Create mutable copies
+      final combined = <Map<String, dynamic>>[];
+      for (var row in transactionResults) {
+        combined.add(Map<String, dynamic>.from(row));
+      }
+      for (var row in paymentResults) {
+        combined.add(Map<String, dynamic>.from(row));
+      }
+
+      combined.sort((a, b) {
+        final dateA = DateTime.parse(a['date'].toString());
+        final dateB = DateTime.parse(b['date'].toString());
+        return dateB.compareTo(dateA);
+      });
+
+      // Calculate balance and build result
+      double balance = openingBalance;
+      final result = <Map<String, dynamic>>[];
+
+      for (var row in combined.reversed) {
+        balance = balance +
+            (row['udhari'] as num? ?? 0).toDouble() -
+            (row['jama'] as num? ?? 0).toDouble();
+        row['balance'] = balance;
+        result.add(row);
+      }
+
+      return result.reversed.toList();
+    } catch (e) {
+      print('❌ Error fetching ledger: $e');
+      return [];
+    }
   }
 
   /// Delete current payment
@@ -324,6 +438,20 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         elevation: 0,
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
+        actions: [
+          if (currentPayment != null) ...[
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf),
+              onPressed: _generatePdfPreview,
+              tooltip: 'PDF दिसवा',
+            ),
+            IconButton(
+              icon: const Icon(Icons.share),
+              onPressed: _sharePayment,
+              tooltip: 'शेयर करा',
+            ),
+          ],
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),

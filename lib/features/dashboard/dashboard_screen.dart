@@ -208,7 +208,7 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     _buildQuickActionCard(
                       icon: Icons.bar_chart,
-                      title: 'आज का जमा',
+                      title: 'आजचा व्यापार',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(

@@ -124,7 +124,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
   }
 
   String _getApplyOnDisplay(String applyOn) {
-    return applyOn == 'farmer' ? 'किसान' : 'व्यापारी';
+    return applyOn == 'farmer' ? 'शेतकरी' : 'खरीददार';
   }
 
   @override
@@ -159,7 +159,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                 ),
                 const SizedBox(width: 8),
                 FilterChip(
-                  label: const Text('किसान'),
+                  label: const Text('शेतकरी'),
                   selected: selectedFilter == 'farmer',
                   onSelected: (selected) {
                     setState(() => selectedFilter = 'farmer');
@@ -168,7 +168,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                 ),
                 const SizedBox(width: 8),
                 FilterChip(
-                  label: const Text('व्यापारी'),
+                  label: const Text('खरीददार'),
                   selected: selectedFilter == 'buyer',
                   onSelected: (selected) {
                     setState(() => selectedFilter = 'buyer');

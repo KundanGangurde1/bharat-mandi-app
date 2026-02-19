@@ -103,7 +103,7 @@ class _DailyPaymentReportScreenState extends State<DailyPaymentReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('आज का जमा रिपोर्ट'),
+        title: const Text('आजचा व्यापार'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
@@ -218,12 +218,12 @@ class _DailyPaymentReportScreenState extends State<DailyPaymentReportScreen> {
                         }
 
                         final data = snapshot.data ?? {};
-                        final paymentCount = data['paymentCount'] as int? ?? 0;
+                        final parchiCount = data['parchiCount'] as int? ?? 0;
                         final creditSales =
                             data['creditSales'] as double? ?? 0.0;
                         final cashSales = data['cashSales'] as double? ?? 0.0;
-                        final totalTransactions =
-                            data['totalTransactions'] as double? ?? 0.0;
+                        final totalSales = data['totalSales'] as double? ?? 0.0;
+                        final paymentCount = data['paymentCount'] as int? ?? 0;
                         final paymentAmount =
                             data['paymentAmount'] as double? ?? 0.0;
 
@@ -248,7 +248,7 @@ class _DailyPaymentReportScreenState extends State<DailyPaymentReportScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Row 1: एकुण पावती & आजची थकबाकी
+                                  // Row 1: एकुण पावती & आजची रोखविक्री
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
@@ -256,28 +256,11 @@ class _DailyPaymentReportScreenState extends State<DailyPaymentReportScreen> {
                                       Expanded(
                                         child: _buildSummaryRow(
                                           label: 'एकुण पावती:',
-                                          value: paymentCount.toString(),
+                                          value: parchiCount.toString(),
                                           color: Colors.blue,
                                         ),
                                       ),
                                       const SizedBox(width: 16),
-                                      Expanded(
-                                        child: _buildSummaryRow(
-                                          label: 'आजची थकबाकी:',
-                                          value: DashboardHelper.formatCurrency(
-                                              creditSales),
-                                          color: Colors.orange,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-
-                                  // Row 2: आजची रोखविक्री & आजचा व्यापार
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
                                       Expanded(
                                         child: _buildSummaryRow(
                                           label: 'आजची रोखविक्री:',
@@ -286,12 +269,29 @@ class _DailyPaymentReportScreenState extends State<DailyPaymentReportScreen> {
                                           color: Colors.green,
                                         ),
                                       ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Row 2: आजची थकबाकी & आजचा व्यापार
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: _buildSummaryRow(
+                                          label: 'आजची थकबाकी:',
+                                          value: DashboardHelper.formatCurrency(
+                                              creditSales),
+                                          color: Colors.orange,
+                                        ),
+                                      ),
                                       const SizedBox(width: 16),
                                       Expanded(
                                         child: _buildSummaryRow(
                                           label: 'आजचा व्यापार:',
                                           value: DashboardHelper.formatCurrency(
-                                              totalTransactions),
+                                              totalSales),
                                           color: Colors.purple,
                                         ),
                                       ),
@@ -299,13 +299,28 @@ class _DailyPaymentReportScreenState extends State<DailyPaymentReportScreen> {
                                   ),
                                   const SizedBox(height: 16),
 
-                                  // Row 3: आजची वसूली (Full Width)
-                                  _buildSummaryRow(
-                                    label: 'आजची वसूली:',
-                                    value: DashboardHelper.formatCurrency(
-                                        paymentAmount),
-                                    color: Colors.red,
-                                    isFullWidth: true,
+                                  // Row 3: एकुण जमा पावती & आजची वसूली
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: _buildSummaryRow(
+                                          label: 'एकुण जमा पावती:',
+                                          value: paymentCount.toString(),
+                                          color: Colors.indigo,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: _buildSummaryRow(
+                                          label: 'आजची वसूली:',
+                                          value: DashboardHelper.formatCurrency(
+                                              paymentAmount),
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

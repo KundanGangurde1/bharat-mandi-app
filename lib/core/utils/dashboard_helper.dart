@@ -6,10 +6,11 @@ class DashboardHelper {
   /// Get today's summary data for dashboard
   ///
   /// Returns:
-  /// - paymentCount: Number of payments entered today
-  /// - creditSales: Total credit sales (उधार विक्री)
-  /// - cashSales: Total cash sales (रोखा विक्री)
-  /// - totalTransactions: Total sales amount (credit + cash)
+  /// - parchiCount: Number of transaction entries created today (एकुण पावती)
+  /// - creditSales: Total credit sales (आजची थकबाकी)
+  /// - cashSales: Total cash sales (आजची रोखविक्री)
+  /// - totalSales: Total sales amount (आजचा व्यापार)
+  /// - paymentCount: Number of payment entries created today (एकुण जमा पावती)
   /// - paymentAmount: Total payment amount (आजची वसूली)
   static Future<Map<String, dynamic>> getTodaysSummary() async {
     try {
@@ -26,19 +27,25 @@ class DashboardHelper {
       final startStr = startOfDay.toIso8601String();
       final endStr = endOfDay.toIso8601String();
 
-      // Query 1: Count payments entered today (एकुण पावती)
-      final paymentCountResult = await powerSyncDB.getAll(
-        '''SELECT COUNT(*) as count FROM payments 
+      print('📊 Dashboard Helper - Fetching data for firm: $firmId');
+      print('📅 Date range: $startStr to $endStr');
+
+      // Query 1: Count PARCHI entries today (एकुण पावती)
+      // Count distinct parchi_id (unique parchi entries) created today
+      final parchiCountResult = await powerSyncDB.getAll(
+        '''SELECT COUNT(DISTINCT parchi_id) as count FROM transactions 
            WHERE firm_id = ? AND created_at >= ? AND created_at < ?''',
         [firmId, startStr, endStr],
       );
-      final paymentCount = paymentCountResult.isNotEmpty
-          ? paymentCountResult[0]['count'] as int
+      final parchiCount = parchiCountResult.isNotEmpty
+          ? parchiCountResult[0]['count'] as int
           : 0;
+      print('✅ Parchi Count (एकुण पावती): $parchiCount');
 
-      // Query 2: Credit sales today (उधार विक्री)
+      // Query 2: Credit sales today (आजची थकबाकी)
+      // Sum of transactions where buyer_code != 'R'
       final creditSalesResult = await powerSyncDB.getAll(
-        '''SELECT IFNULL(SUM(net), 0) as total FROM transactions 
+        '''SELECT IFNULL(SUM(CAST(net AS REAL)), 0) as total FROM transactions 
            WHERE firm_id = ? AND buyer_code != 'R' AND created_at >= ? AND created_at < ?''',
         [firmId, startStr, endStr],
       );
@@ -47,10 +54,12 @@ class DashboardHelper {
                   : 0)
               ?.toDouble() ??
           0.0;
+      print('✅ Credit Sales (आजची थकबाकी): ₹$creditSales');
 
-      // Query 3: Cash sales today (रोखा विक्री)
+      // Query 3: Cash sales today (आजची रोखविक्री)
+      // Sum of transactions where buyer_code = 'R'
       final cashSalesResult = await powerSyncDB.getAll(
-        '''SELECT IFNULL(SUM(net), 0) as total FROM transactions 
+        '''SELECT IFNULL(SUM(CAST(net AS REAL)), 0) as total FROM transactions 
            WHERE firm_id = ? AND buyer_code = 'R' AND created_at >= ? AND created_at < ?''',
         [firmId, startStr, endStr],
       );
@@ -58,10 +67,28 @@ class DashboardHelper {
           (cashSalesResult.isNotEmpty ? cashSalesResult[0]['total'] as num? : 0)
                   ?.toDouble() ??
               0.0;
+      print('✅ Cash Sales (आजची रोखविक्री): ₹$cashSales');
 
-      // Query 4: Total payment amount today (आजची वसूली)
+      // Query 4: Total sales (आजचा व्यापार)
+      final totalSales = creditSales + cashSales;
+      print('✅ Total Sales (आजचा व्यापार): ₹$totalSales');
+
+      // Query 5: Count payment entries today (एकुण जमा पावती)
+      // Count distinct payment records created today
+      final paymentCountResult = await powerSyncDB.getAll(
+        '''SELECT COUNT(DISTINCT id) as count FROM payments 
+           WHERE firm_id = ? AND created_at >= ? AND created_at < ?''',
+        [firmId, startStr, endStr],
+      );
+      final paymentCount = paymentCountResult.isNotEmpty
+          ? paymentCountResult[0]['count'] as int
+          : 0;
+      print('✅ Payment Count (एकुण जमा पावती): $paymentCount');
+
+      // Query 6: Total payment amount (आजची वसूली)
+      // Sum of payment amounts created today
       final paymentAmountResult = await powerSyncDB.getAll(
-        '''SELECT IFNULL(SUM(amount), 0) as total FROM payments 
+        '''SELECT IFNULL(SUM(CAST(amount AS REAL)), 0) as total FROM payments 
            WHERE firm_id = ? AND created_at >= ? AND created_at < ?''',
         [firmId, startStr, endStr],
       );
@@ -70,24 +97,27 @@ class DashboardHelper {
                   : 0)
               ?.toDouble() ??
           0.0;
+      print('✅ Payment Amount (आजची वसूली): ₹$paymentAmount');
 
-      // Total transactions = credit + cash
-      final totalTransactions = creditSales + cashSales;
+      print(
+          '📊 Dashboard Summary: Parchi=$parchiCount, Credit=₹$creditSales, Cash=₹$cashSales, Total=₹$totalSales, PaymentCount=$paymentCount, PaymentAmount=₹$paymentAmount');
 
       return {
-        'paymentCount': paymentCount,
+        'parchiCount': parchiCount,
         'creditSales': creditSales,
         'cashSales': cashSales,
-        'totalTransactions': totalTransactions,
+        'totalSales': totalSales,
+        'paymentCount': paymentCount,
         'paymentAmount': paymentAmount,
       };
     } catch (e) {
       print('❌ Error getting today\'s summary: $e');
       return {
-        'paymentCount': 0,
+        'parchiCount': 0,
         'creditSales': 0.0,
         'cashSales': 0.0,
-        'totalTransactions': 0.0,
+        'totalSales': 0.0,
+        'paymentCount': 0,
         'paymentAmount': 0.0,
       };
     }

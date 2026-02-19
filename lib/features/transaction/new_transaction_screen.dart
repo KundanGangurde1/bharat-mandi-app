@@ -1057,9 +1057,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                   child:
                                       Text('कोणतेही खर्च प्रकार उपलब्ध नाहीत')),
                             ...expenseItems
-                                .where((exp) =>
-                                    exp.applyOn == 'farmer' ||
-                                    exp.applyOn == 'buyer')
+                                .where((exp) => exp.applyOn == 'farmer')
                                 .map((exp) {
                               final enteredValue =
                                   double.tryParse(exp.controller.text) ??
