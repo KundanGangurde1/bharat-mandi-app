@@ -23,6 +23,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
 
   bool isLoading = false;
   bool isEditMode = false;
+  bool isDefault = false; // ✅ NEW: Track if default expense
   Map<String, dynamic>? expenseData;
 
   @override
@@ -59,6 +60,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
             expenseData!['default_value']?.toString() ?? '0';
         active = expenseData!['active'] == 1;
         showInReport = expenseData!['show_in_report'] == 1;
+        isDefault = (expenseData!['is_default'] as int?) == 1; // ✅ NEW
       }
     } catch (e) {
       print('❌ Error loading expense type: $e');
@@ -130,6 +132,64 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
     } catch (e) {
       print('❌ Error saving expense type: $e');
       print('⚠️ Check if active firm is set');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('त्रुटी: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  // ✅ NEW: Delete expense type
+  Future<void> _deleteExpenseType() async {
+    if (isDefault) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('डिफॉल्ट खर्च हटवू शकत नाही'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('खर्च हटवा?'),
+        content: const Text('हा खर्च प्रकार हटवल्यानंतर पुन्हा मिळणार नाही.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('रद्द करा'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('हटवा'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => isLoading = true);
+
+    try {
+      await deleteRecord('expense_types', widget.expenseId!);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('खर्च प्रकार हटवला गेला'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context, true);
+    } catch (e) {
+      print('❌ Error deleting expense type: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('त्रुटी: ${e.toString()}'),
@@ -213,7 +273,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                         ),
                         Expanded(
                           child: RadioListTile<String>(
-                            title: const Text('खरीददार'),
+                            title: const Text('व्यापारी'),
                             value: 'buyer',
                             groupValue: applyOn,
                             onChanged: (value) {
@@ -308,7 +368,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                             ),
                             SizedBox(height: 4),
                             Text('• शेतकरी खर्च: हमाली, तोलाई, वाराई'),
-                            Text('• खरीददार खर्च: कमीशन, अ‍ॅडव्हान्स'),
+                            Text('• व्यापारी खर्च: कमीशन, अ‍ॅडव्हान्स'),
                             Text('• प्रति डाग: डाग × मूल्य'),
                             Text('• टक्केवारी: एकूण रक्कम × %'),
                             Text('• फिक्स्ड: पावती प्रति फिक्स्ड अमाउंट'),
@@ -318,6 +378,29 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                     ),
 
                     const SizedBox(height: 30),
+
+                    // ✅ NEW: Warning for default expense
+                    if (isDefault)
+                      Card(
+                        color: Colors.orange[50],
+                        child: const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning, color: Colors.orange),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'हे डिफॉल्ट खर्च आहे. तुम्ही हटवू शकत नाही.',
+                                  style: TextStyle(color: Colors.orange),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 20),
 
                     // Save Button
                     SizedBox(
@@ -335,6 +418,29 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                         ),
                       ),
                     ),
+
+                    const SizedBox(height: 12),
+
+                    // ✅ NEW: Delete Button (disabled for default expenses)
+                    if (isEditMode)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: isDefault || isLoading
+                              ? null
+                              : _deleteExpenseType,
+                          icon: const Icon(Icons.delete),
+                          label: const Text(
+                            'हटवा',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor:
+                                isDefault ? Colors.grey : Colors.red,
+                          ),
+                        ),
+                      ),
 
                     const SizedBox(height: 20),
                   ],

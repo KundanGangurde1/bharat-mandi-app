@@ -47,6 +47,10 @@ final schema = Schema([
     Column.integer('active'),
     Column.text('created_at'),
     Column.text('updated_at'),
+    // ✅ NEW: Commission columns for per-produce commission
+    Column.text('commission_type'), // DEFAULT or PER_PRODUCE
+    Column.real('commission_value'), // Percentage value (e.g., 5.0)
+    Column.text('commission_apply_on'), // farmer or buyer
   ]),
 
   // 4. EXPENSE TYPES TABLE
@@ -60,6 +64,10 @@ final schema = Schema([
     Column.integer('show_in_report'),
     Column.text('created_at'),
     Column.text('updated_at'),
+    // ✅ NEW: Commission tracking columns
+    Column.integer('is_commission'), // 1 if this is a commission expense
+    Column.integer(
+        'is_default'), // 1 if this is the default expense (non-deletable)
   ]),
 
   // 5. TRANSACTIONS TABLE
@@ -80,6 +88,8 @@ final schema = Schema([
     Column.real('net'),
     Column.text('created_at'),
     Column.text('updated_at'),
+    // ✅ NEW: Farmer expense tracking
+    Column.real('farmer_expense'), // Expenses applied to farmer
   ]),
 
   // 6. TRANSACTION EXPENSES TABLE

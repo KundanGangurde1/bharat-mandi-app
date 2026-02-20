@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/services/powersync_service.dart';
 import '../../core/services/firm_data_service.dart'; // ✅ NEW
 import '../../core/expense_controller.dart';
+import '../../core/utils/commission_helper.dart'; // ✅ NEW: Commission helper
 import '../transaction/pavti_list_screen.dart';
 
 class TransactionRow {
@@ -607,13 +608,68 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         final row = rows[i];
 
         double buyerExpense = 0;
+        double farmerExpense = 0; // ✅ NEW: Farmer expense tracking
 
         double buyerDag = row.dag;
         double buyerQty = row.weight;
         double buyerGross = row.total;
 
+        final firmId = await FirmDataService.getActiveFirmId();
+
+        // ✅ NEW: Check if produce has PER_PRODUCE commission
+        final hasPerProduceCommission =
+            await CommissionHelper.hasPerProduceCommission(
+          produceCode: row.produceCode,
+          firmId: firmId ?? '',
+        );
+
+        if (hasPerProduceCommission) {
+          // ✅ NEW: Apply PER_PRODUCE commission
+          final buyerCommission = await CommissionHelper.applyProduceCommission(
+            produceCode: row.produceCode,
+            itemAmount: buyerGross,
+            applyOn: 'buyer',
+            firmId: firmId ?? '',
+          );
+          buyerExpense += buyerCommission;
+
+          final farmerCommission =
+              await CommissionHelper.applyProduceCommission(
+            produceCode: row.produceCode,
+            itemAmount: buyerGross,
+            applyOn: 'farmer',
+            firmId: firmId ?? '',
+          );
+          farmerExpense += farmerCommission;
+        } else {
+          // ✅ NEW: Apply DEFAULT commission from Expense Types
+          final defaultCommission =
+              await CommissionHelper.applyExpenseTypeCommission(
+            itemAmount: buyerGross,
+            applyOn: 'buyer',
+            firmId: firmId ?? '',
+            expenseTypes: expenseItems
+                .map((e) => {
+                      'name': e.name,
+                      'is_commission': 1, // Only commission expenses
+                      'apply_on': e.applyOn,
+                      'calculation_type': e.calculationType,
+                      'default_value':
+                          double.tryParse(e.controller.text) ?? e.defaultValue,
+                    })
+                .toList(),
+          );
+          buyerExpense += defaultCommission;
+        }
+
+        // ✅ NEW: Apply non-commission expenses to both buyer and farmer
         for (var exp in expenseItems) {
-          if (exp.applyOn != 'buyer') continue;
+          // Skip commission expenses if PER_PRODUCE (already applied above)
+          if (hasPerProduceCommission &&
+              (exp.name.toLowerCase().contains('commission') ||
+                  exp.name.toLowerCase().contains('कमिशन'))) {
+            continue;
+          }
 
           final entered =
               double.tryParse(exp.controller.text) ?? exp.defaultValue;
@@ -636,12 +692,16 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
               break;
           }
 
-          buyerExpense += calc;
+          if (exp.applyOn == 'buyer') {
+            buyerExpense += calc;
+          } else if (exp.applyOn == 'farmer') {
+            farmerExpense += calc;
+          }
         }
 
         final buyerNet = buyerGross + buyerExpense;
 
-        // ✅ NEW: Insert with firm_id
+        // ✅ NEW: Insert with firm_id and farmer_expense
         final transactionData = {
           'parchi_id': parchiId,
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
@@ -656,6 +716,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           'gross': buyerGross,
           'total_expense': buyerExpense,
           'net': buyerNet,
+          'farmer_expense': farmerExpense, // ✅ NEW: Farmer expense
           'created_at': selectedDate.toIso8601String(),
           'updated_at': now,
         };

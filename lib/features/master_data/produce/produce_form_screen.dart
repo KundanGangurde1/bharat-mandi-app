@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
-import '../../../core/services/firm_data_service.dart'; // ✅ NEW
+import '../../../core/services/firm_data_service.dart';
 
 class ProduceFormScreen extends StatefulWidget {
   final String? produceId;
@@ -18,11 +18,17 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
   final nameCtrl = TextEditingController();
   final varietyCtrl = TextEditingController();
   final categoryCtrl = TextEditingController();
+  final commissionValueCtrl =
+      TextEditingController(); // ✅ NEW: Commission percentage
 
   bool isLoading = false;
   bool isEditMode = false;
   bool isCodeUsed = false;
   Map<String, dynamic>? produceData;
+
+  // ✅ NEW: Commission fields
+  String commissionType = 'DEFAULT'; // DEFAULT or PER_PRODUCE
+  String? selectedApplyOn = 'farmer'; // farmer or buyer
 
   @override
   void initState() {
@@ -38,7 +44,6 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     setState(() => isLoading = true);
 
     try {
-      // ✅ NEW: Load produce data for active firm
       final firmId = await FirmDataService.getActiveFirmId();
       final data = await powerSyncDB.getAll(
         'SELECT * FROM produce WHERE firm_id = ? AND id = ?',
@@ -53,7 +58,12 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
         varietyCtrl.text = produceData!['variety']?.toString() ?? '';
         categoryCtrl.text = produceData!['category']?.toString() ?? '';
 
-        // ✅ NEW: Check if code is used in transactions for active firm
+        // ✅ NEW: Load commission fields
+        commissionType = produceData!['commission_type'] ?? 'DEFAULT';
+        selectedApplyOn = produceData!['commission_apply_on'] ?? 'farmer';
+        commissionValueCtrl.text =
+            (produceData!['commission_value'] as num?)?.toString() ?? '';
+
         final firmId2 = await FirmDataService.getActiveFirmId();
         final transactions = await powerSyncDB.getAll(
           'SELECT COUNT(*) as count FROM transactions WHERE firm_id = ? AND produce_code = ?',
@@ -70,7 +80,6 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
       }
     } catch (e) {
       print('❌ Error loading produce: $e');
-      print('⚠️ Check if active firm is set');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('त्रुटी: $e')),
@@ -86,10 +95,8 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
 
     final code = codeCtrl.text.trim().toUpperCase();
 
-    // Check if code is unique (if new or code changed)
     if (!isEditMode || code != produceData?['code']) {
       try {
-        // ✅ NEW: Check code uniqueness for active firm
         final firmId3 = await FirmDataService.getActiveFirmId();
         if (firmId3 == null) {
           throw Exception('No active firm found');
@@ -121,20 +128,30 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     try {
       final now = DateTime.now().toIso8601String();
 
+      // ✅ NEW: Set default commission_type if not set
+      if (commissionType.isEmpty) {
+        commissionType = 'DEFAULT';
+      }
+
       final Map<String, dynamic> produce = {
         'code': code,
         'name': nameCtrl.text.trim(),
         'variety': varietyCtrl.text.trim(),
         'category': categoryCtrl.text.trim(),
         'updated_at': now,
+        // ✅ NEW: Commission fields
+        'commission_type': commissionType,
+        'commission_value': commissionType == 'PER_PRODUCE'
+            ? double.tryParse(commissionValueCtrl.text)
+            : null,
+        'commission_apply_on':
+            commissionType == 'PER_PRODUCE' ? selectedApplyOn : null,
       };
 
       if (isEditMode) {
-        // PowerSync: Update produce
         await updateRecord('produce', widget.produceId!, produce);
         print('✅ Produce updated: $widget.produceId');
       } else {
-        // ✅ NEW: Insert new produce with firm_id
         produce['created_at'] = now;
         produce['active'] = 1;
         await FirmDataService.insertRecordWithFirmId('produce', produce);
@@ -157,7 +174,6 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
       });
     } catch (e) {
       print('❌ Error saving produce: $e');
-      print('⚠️ Check if active firm is set');
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -248,29 +264,207 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
                     ),
                     const SizedBox(height: 24),
 
+                    // ✅ NEW: Commission Type Toggle
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.orange, width: 2),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.orange.withOpacity(0.05),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'कमिशन प्रकार *',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() => commissionType = 'DEFAULT');
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: commissionType == 'DEFAULT'
+                                            ? Colors.green
+                                            : Colors.grey,
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: commissionType == 'DEFAULT'
+                                          ? Colors.green.withOpacity(0.1)
+                                          : Colors.transparent,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: commissionType == 'DEFAULT'
+                                              ? Colors.green
+                                              : Colors.grey,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          'डिफॉल्ट',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(
+                                        () => commissionType = 'PER_PRODUCE');
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: commissionType == 'PER_PRODUCE'
+                                            ? Colors.blue
+                                            : Colors.grey,
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: commissionType == 'PER_PRODUCE'
+                                          ? Colors.blue.withOpacity(0.1)
+                                          : Colors.transparent,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.tune,
+                                          color: commissionType == 'PER_PRODUCE'
+                                              ? Colors.blue
+                                              : Colors.grey,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          'मालाप्रमाणे',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // ✅ NEW: Commission Value Field (only for PER_PRODUCE)
+                          if (commissionType == 'PER_PRODUCE') ...[
+                            TextFormField(
+                              controller: commissionValueCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'कमिशन टक्केवारी (%)',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.percent),
+                                hintText: 'उदा. 5 किंवा 2.5',
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              validator: (value) {
+                                if (commissionType == 'PER_PRODUCE' &&
+                                    (value == null || value.isEmpty)) {
+                                  return 'कृपया कमिशन टक्केवारी टाका';
+                                }
+                                if (value != null &&
+                                    value.isNotEmpty &&
+                                    double.tryParse(value) == null) {
+                                  return 'कृपया योग्य नंबर टाका';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // ✅ NEW: Apply On Toggle (only for PER_PRODUCE)
+                            const Text(
+                              'लागू करा *',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: RadioListTile<String>(
+                                    title: const Text('शेतकरी'),
+                                    value: 'farmer',
+                                    groupValue: selectedApplyOn,
+                                    onChanged: (value) {
+                                      setState(() => selectedApplyOn = value);
+                                    },
+                                  ),
+                                ),
+                                Expanded(
+                                  child: RadioListTile<String>(
+                                    title: const Text('खरीददार'),
+                                    value: 'buyer',
+                                    groupValue: selectedApplyOn,
+                                    onChanged: (value) {
+                                      setState(() => selectedApplyOn = value);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
                     // Save Button
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
+                      child: ElevatedButton(
                         onPressed: isLoading ? null : _saveProduce,
-                        icon: isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.save),
-                        label: Text(
-                          isEditMode ? 'अपडेट करा' : 'जोडा',
-                          style: const TextStyle(fontSize: 16),
-                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
+                        child: isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : Text(
+                                isEditMode ? 'अपडेट करा' : 'जोडा',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ],
@@ -286,6 +480,7 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     nameCtrl.dispose();
     varietyCtrl.dispose();
     categoryCtrl.dispose();
+    commissionValueCtrl.dispose();
     super.dispose();
   }
 }
