@@ -1,7 +1,7 @@
 import '../services/powersync_service.dart';
 
 class CommissionHelper {
-  /// ✅ METHOD 1: Apply commission from PRODUCE table (PER_PRODUCE)
+  /// ✅ METHOD 1: Apply commission from PRODUCE table (TAP A - PER_PRODUCE)
   /// Used when produce.commission_type = 'PER_PRODUCE'
   static Future<double> applyProduceCommission({
     required String produceCode,
@@ -46,7 +46,7 @@ class CommissionHelper {
 
       final commissionAmount = (itemAmount * commissionValue) / 100;
       print(
-          '✅ Produce Commission applied: $produceCode ($commissionValue%) on $applyOn = ₹$commissionAmount');
+          '🔴 TAP A: Produce Commission applied: $produceCode ($commissionValue%) on $applyOn = ₹$commissionAmount');
 
       return commissionAmount;
     } catch (e) {
@@ -55,60 +55,39 @@ class CommissionHelper {
     }
   }
 
-  /// ✅ METHOD 2: Apply commission from EXPENSE_TYPES table (DEFAULT)
+  /// ✅ METHOD 2: Apply commission from EXPENSE_TYPES table (TAP B - DEFAULT)
   /// Used when produce.commission_type = 'DEFAULT'
-  /// Applies to all produces (except those with PER_PRODUCE)
+  /// Only applies "कमिशन" expense commission
   static Future<double> applyExpenseTypeCommission({
     required double itemAmount,
     required String applyOn, // 'farmer' or 'buyer'
     required String firmId,
-    required List<Map<String, dynamic>> expenseTypes,
   }) async {
     try {
-      double totalCommission = 0;
+      // Get "कमिशन" expense from expense_types
+      final commissionExpense = await powerSyncDB.getAll(
+        'SELECT commission FROM expense_types WHERE firm_id = ? AND name = ? AND active = 1',
+        [firmId, 'कमिशन'],
+      );
 
-      // Filter commission expenses from expense types
-      final commissionExpenses = expenseTypes
-          .where((exp) => (exp['is_commission'] as int?) == 1)
-          .where((exp) => (exp['apply_on'] as String?) == applyOn)
-          .toList();
-
-      if (commissionExpenses.isEmpty) {
-        print('ℹ️ No commission expenses found for $applyOn');
+      if (commissionExpense.isEmpty) {
+        print('ℹ️ कमिशन expense not found for firm: $firmId');
         return 0;
       }
 
-      for (var exp in commissionExpenses) {
-        final name = exp['name'] as String? ?? '';
-        final calculationType =
-            exp['calculation_type'] as String? ?? 'percentage';
-        final defaultValue = (exp['default_value'] as num?)?.toDouble() ?? 0;
+      final commission =
+          (commissionExpense.first['commission'] as num?)?.toDouble() ?? 0;
 
-        if (defaultValue <= 0) continue;
-
-        double commission = 0;
-
-        switch (calculationType) {
-          case 'percentage':
-            commission = (itemAmount * defaultValue) / 100;
-            break;
-          case 'fixed':
-            commission = defaultValue;
-            break;
-          case 'per_dag':
-            // Per dag commission (if applicable)
-            commission = defaultValue;
-            break;
-          default:
-            commission = 0;
-        }
-
-        totalCommission += commission;
-        print(
-            '✅ Expense Type Commission: $name ($defaultValue $calculationType) on $applyOn = ₹$commission');
+      if (commission <= 0) {
+        print('ℹ️ कमिशन expense has no commission value set');
+        return 0;
       }
 
-      return totalCommission;
+      final commissionAmount = (itemAmount * commission) / 100;
+      print(
+          '🟢 TAP B: Expense Type Commission (कमिशन) applied: ($commission%) on $applyOn = ₹$commissionAmount');
+
+      return commissionAmount;
     } catch (e) {
       print('❌ Error applying expense type commission: $e');
       return 0;

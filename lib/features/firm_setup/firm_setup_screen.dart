@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'firm_model.dart';
 import 'firm_service.dart';
 import 'firm_form_screen.dart';
 import 'firm_list_screen.dart';

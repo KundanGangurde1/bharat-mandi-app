@@ -1,4 +1,3 @@
-import 'package:powersync/powersync.dart';
 import '../../core/services/powersync_service.dart';
 
 /// ✅ Production Ready Firm Data Service

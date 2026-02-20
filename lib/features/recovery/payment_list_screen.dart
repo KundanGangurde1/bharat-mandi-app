@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../../../core/services/powersync_service.dart';
 import '../../features/recovery/payment_model.dart';
 import '../../features/recovery/payment_detail_screen.dart';

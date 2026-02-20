@@ -8,7 +8,6 @@ import '../transaction/pavti_list_screen.dart';
 import '../firm_setup/firm_setup_screen.dart';
 import '../recovery/payment_entry_screen.dart';
 import '../recovery/daily_payment_report_screen.dart';
-import '../recovery/payment_list_screen.dart';
 import '../../core/active_firm_provider.dart';
 
 class DashboardScreen extends StatelessWidget {

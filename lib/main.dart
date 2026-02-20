@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/services/powersync_service.dart';
 import 'core/expense_controller.dart';
-import 'features/dashboard/dashboard_screen.dart';
 import 'core/active_firm_provider.dart';
 import 'app/AppRootScreen.dart';
+import 'core/services/initialization_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,10 +16,11 @@ void main() async {
   } catch (e) {
     print('❌ Failed to initialize PowerSync: $e');
     // Show error dialog or fallback UI
+
     runApp(const ErrorApp());
     return;
   }
-
+  await InitializationService.initializeDefaultData();
   runApp(const MyApp());
 }
 

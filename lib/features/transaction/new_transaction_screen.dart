@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import '../../core/services/powersync_service.dart';
 import '../../core/services/firm_data_service.dart'; // ✅ NEW
-import '../../core/expense_controller.dart';
 import '../../core/utils/commission_helper.dart'; // ✅ NEW: Commission helper
 import '../transaction/pavti_list_screen.dart';
 
@@ -608,7 +606,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         final row = rows[i];
 
         double buyerExpense = 0;
-        double farmerExpense = 0; // ✅ NEW: Farmer expense tracking
+        double farmerExpense = 0;
 
         double buyerDag = row.dag;
         double buyerQty = row.weight;
@@ -616,15 +614,21 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
         final firmId = await FirmDataService.getActiveFirmId();
 
-        // ✅ NEW: Check if produce has PER_PRODUCE commission
-        final hasPerProduceCommission =
-            await CommissionHelper.hasPerProduceCommission(
+        // ✅ STEP 1: Check produce commission type (TAP A or TAP B)
+        final commissionDetails = await CommissionHelper.getCommissionDetails(
           produceCode: row.produceCode,
           firmId: firmId ?? '',
         );
 
-        if (hasPerProduceCommission) {
-          // ✅ NEW: Apply PER_PRODUCE commission
+        final commissionType =
+            commissionDetails?['commission_type'] ?? 'DEFAULT';
+
+        // ✅ STEP 2: Apply commission based on type (ONLY for "कमिशन")
+        if (commissionType == 'PER_PRODUCE') {
+          // ===== TAP A ACTIVE: PRODUCE-SPECIFIC COMMISSION =====
+          print(
+              '🔴 TAP A ACTIVE: Using produce-specific commission for ${row.produceCode}');
+
           final buyerCommission = await CommissionHelper.applyProduceCommission(
             produceCode: row.produceCode,
             itemAmount: buyerGross,
@@ -642,32 +646,38 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           );
           farmerExpense += farmerCommission;
         } else {
-          // ✅ NEW: Apply DEFAULT commission from Expense Types
-          final defaultCommission =
+          // ===== TAP B ACTIVE: EXPENSE TYPE COMMISSION (कमिशन) =====
+          print(
+              '🟢 TAP B ACTIVE: Using expense type commission for ${row.produceCode}');
+
+          // Apply "कमिशन" expense commission to buyer
+          final buyerCommission =
               await CommissionHelper.applyExpenseTypeCommission(
             itemAmount: buyerGross,
             applyOn: 'buyer',
             firmId: firmId ?? '',
-            expenseTypes: expenseItems
-                .map((e) => {
-                      'name': e.name,
-                      'is_commission': 1, // Only commission expenses
-                      'apply_on': e.applyOn,
-                      'calculation_type': e.calculationType,
-                      'default_value':
-                          double.tryParse(e.controller.text) ?? e.defaultValue,
-                    })
-                .toList(),
           );
-          buyerExpense += defaultCommission;
+          buyerExpense += buyerCommission;
+
+          // Apply "कमिशन" expense commission to farmer (if any)
+          final farmerCommission =
+              await CommissionHelper.applyExpenseTypeCommission(
+            itemAmount: buyerGross,
+            applyOn: 'farmer',
+            firmId: firmId ?? '',
+          );
+          farmerExpense += farmerCommission;
         }
 
-        // ✅ NEW: Apply non-commission expenses to both buyer and farmer
+        // ✅ STEP 3: Apply ALL OTHER EXPENSES (non-commission)
+        // These apply regardless of TAP A or TAP B
+        print('📋 Applying other expenses...');
+
         for (var exp in expenseItems) {
-          // Skip commission expenses if PER_PRODUCE (already applied above)
-          if (hasPerProduceCommission &&
-              (exp.name.toLowerCase().contains('commission') ||
-                  exp.name.toLowerCase().contains('कमिशन'))) {
+          // Skip "कमिशन" expense (already handled above)
+          if (exp.name.trim() == 'कमिशन') {
+            print(
+                '⏭️ Skipping कमिशन expense (already applied via commission logic)');
             continue;
           }
 
@@ -701,7 +711,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
         final buyerNet = buyerGross + buyerExpense;
 
-        // ✅ NEW: Insert with firm_id and farmer_expense
+        // ✅ STEP 4: Insert transaction with both buyer and farmer expenses
         final transactionData = {
           'parchi_id': parchiId,
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
@@ -720,8 +730,11 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           'created_at': selectedDate.toIso8601String(),
           'updated_at': now,
         };
+
         await FirmDataService.insertRecordWithFirmId(
             'transactions', transactionData);
+        print(
+            '✅ Transaction row saved: buyer_expense=$buyerExpense, farmer_expense=$farmerExpense');
       }
 
       // ================= INSERT EXPENSES =================
@@ -977,7 +990,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                             value: produceLocked,
                             onChanged: (value) =>
                                 setState(() => produceLocked = value),
-                            activeColor: Colors.green,
+                            activeThumbColor: Colors.green,
                           ),
                           const Text('लॉक'),
                           const SizedBox(width: 8),
@@ -1104,7 +1117,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                       value: expenseExpanded,
                                       onChanged: (value) => setState(
                                           () => expenseExpanded = value),
-                                      activeColor: Colors.green,
+                                      activeThumbColor: Colors.green,
                                     ),
                                   ],
                                 ),

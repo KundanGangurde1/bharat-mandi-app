@@ -7,6 +7,7 @@ class ExpenseItem {
   final String calculationType;
   final String applyOn;
   final double defaultValue;
+  final double commission; // ✅ NEW: Commission field
   final TextEditingController controller = TextEditingController();
 
   ExpenseItem({
@@ -15,6 +16,7 @@ class ExpenseItem {
     required this.calculationType,
     required this.applyOn,
     required this.defaultValue,
+    this.commission = 0.0, // ✅ NEW: Default commission
   });
 }
 
@@ -37,6 +39,8 @@ class ExpenseController extends ChangeNotifier {
                     row['calculation_type'] as String? ?? 'per_dag',
                 applyOn: row['apply_on'] as String? ?? 'farmer',
                 defaultValue: (row['default_value'] as num?)?.toDouble() ?? 0.0,
+                commission:
+                    (row['commission'] as num?)?.toDouble() ?? 0.0, // ✅ NEW
               ))
           .toList();
 
@@ -59,6 +63,13 @@ class ExpenseController extends ChangeNotifier {
     double sum = 0.0;
 
     for (var exp in expenseItems) {
+      // ✅ SKIP: "कमिशन" expense (handled in transaction logic via TAP A/TAP B)
+      if (exp.name.trim() == 'कमिशन') {
+        print(
+            '⏭️ Skipping कमिशन expense in updateTotal (handled via TAP logic)');
+        continue;
+      }
+
       if (exp.applyOn != 'farmer') continue;
 
       final entered = double.tryParse(exp.controller.text) ?? exp.defaultValue;

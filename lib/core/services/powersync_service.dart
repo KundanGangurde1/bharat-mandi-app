@@ -65,9 +65,7 @@ final schema = Schema([
     Column.text('created_at'),
     Column.text('updated_at'),
     // ✅ NEW: Commission tracking columns
-    Column.integer('is_commission'), // 1 if this is a commission expense
-    Column.integer(
-        'is_default'), // 1 if this is the default expense (non-deletable)
+    Column.real('commission'), // Commission percentage for कमिशन expense
   ]),
 
   // 5. TRANSACTIONS TABLE

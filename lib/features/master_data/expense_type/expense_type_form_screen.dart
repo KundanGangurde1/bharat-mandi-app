@@ -18,6 +18,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
   String applyOn = 'farmer'; // 'farmer' or 'buyer'
   String calculationType = 'per_dag'; // 'per_dag', 'percentage', 'fixed'
   final defaultValueCtrl = TextEditingController();
+  final commissionCtrl = TextEditingController(); // ✅ NEW: Commission field
   bool active = true;
   bool showInReport = true;
 
@@ -58,9 +59,9 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
             expenseData!['calculation_type']?.toString() ?? 'per_dag';
         defaultValueCtrl.text =
             expenseData!['default_value']?.toString() ?? '0';
+        commissionCtrl.text = expenseData!['commission']?.toString() ?? '0';
         active = expenseData!['active'] == 1;
         showInReport = expenseData!['show_in_report'] == 1;
-        isDefault = (expenseData!['is_default'] as int?) == 1; // ✅ NEW
       }
     } catch (e) {
       print('❌ Error loading expense type: $e');
@@ -80,6 +81,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
 
     final name = nameCtrl.text.trim();
     final defaultValue = double.tryParse(defaultValueCtrl.text) ?? 0;
+    final commission = double.tryParse(commissionCtrl.text) ?? 0; // ✅ NEW
 
     if (defaultValue < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -105,6 +107,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
         'apply_on': applyOn,
         'calculation_type': calculationType,
         'default_value': defaultValue,
+        'commission': commission, // ✅ NEW: Commission field
         'active': active ? 1 : 0,
         'show_in_report': showInReport ? 1 : 0,
         'updated_at': now,
