@@ -84,6 +84,7 @@ class ExpenseController extends ChangeNotifier {
           calculated = totalAmt * (entered / 100);
           break;
         case 'fixed':
+        case 'pavti_nusar':
           calculated = entered;
           break;
       }

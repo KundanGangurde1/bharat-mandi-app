@@ -178,6 +178,23 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     });
   }
 
+  String _getCalculationTypeDisplay(String type) {
+    switch (type) {
+      case 'per_unit':
+        return 'प्रति युनिट';
+      case 'per_dag':
+        return 'प्रति डाग';
+      case 'percentage':
+        return 'टक्केवारी';
+      case 'fixed':
+        return 'फिक्स्ड';
+      case 'pavti_nusar':
+        return 'पावती नुसार';
+      default:
+        return type;
+    }
+  }
+
   // Lookup methods
   Future<void> lookupFarmer(String code) async {
     code = code.trim().toUpperCase();
@@ -305,6 +322,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           calculated = totalAmt * (entered / 100);
           break;
         case 'fixed':
+        case 'pavti_nusar':
           calculated = entered;
           break;
         default:
@@ -364,6 +382,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           break;
 
         case 'fixed':
+        case 'pavti_nusar':
           sum += entered;
           break;
       }
@@ -393,6 +412,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           sum += totalAmt * (entered / 100);
           break;
         case 'fixed':
+        case 'pavti_nusar':
           sum += entered;
           break;
       }
@@ -419,6 +439,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           sum += totalAmt * (entered / 100);
           break;
         case 'fixed':
+        case 'pavti_nusar':
           sum += entered;
           break;
       }
@@ -695,6 +716,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
               calc = buyerQty * entered;
               break;
             case 'fixed':
+            case 'pavti_nusar':
               calc = entered;
               break;
             case 'percentage':
@@ -1159,6 +1181,10 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                   calculatedAmount =
                                       totalAmt * (enteredValue / 100);
                                   break;
+                                case 'fixed':
+                                case 'pavti_nusar':
+                                  calculatedAmount = enteredValue;
+                                  break;
                               }
 
                               return Padding(
@@ -1168,7 +1194,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                                     Expanded(
                                       flex: 3,
                                       child: Text(
-                                        '${exp.name} (${exp.calculationType == 'per_unit' ? 'प्रति युनिट' : exp.calculationType == 'per_dag' ? 'प्रति डाग' : 'टक्केवारी'})',
+                                        '${exp.name} (${_getCalculationTypeDisplay(exp.calculationType)})',
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold),
                                       ),

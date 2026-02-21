@@ -17,6 +17,34 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
   // For filtering
   String selectedFilter = 'all'; // 'all', 'farmer', 'buyer'
 
+  static const Set<String> _lockedExpenseNames = {
+    'कमिशन',
+    'commission',
+    'हमाली',
+    'वाराई',
+    'आडत',
+    'इतर खर्च',
+    'मो . भाडे',
+    'इनाम',
+  };
+
+  String _normalizeName(String? name) {
+    return (name ?? '').replaceAll(RegExp(r'\s+'), '').toLowerCase();
+  }
+
+  bool _isLockedExpense(Map<String, dynamic> expense) {
+    final normalized = _normalizeName(expense['name']?.toString());
+    return _lockedExpenseNames.any(
+      (lockedName) => _normalizeName(lockedName) == normalized,
+    );
+  }
+
+  bool isLockedExpense(Map<String, dynamic> expense) {
+    final normalizedName =
+        (expense['name']?.toString().trim().toLowerCase() ?? '');
+    return normalizedName == 'कमिशन' || normalizedName == 'commission';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -72,7 +100,14 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
     }
   }
 
-  Future<void> _deleteExpense(String id) async {
+  Future<void> _deleteExpense(
+    String id, {
+    bool isLockedExpense = false,
+  }) async {
+    if (isLockedExpense) {
+      _showSnackBar('हा खर्च प्रकार डिलीट करता येणार नाही');
+      return;
+    }
     final confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -118,6 +153,8 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
         return '% (Percentage)';
       case 'per_dag':
         return 'प्रति डाग';
+      case 'pavti_nusar':
+        return 'पावती नुसार';
       default:
         return mode;
     }
@@ -223,6 +260,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                           final expense = expenseTypes[index];
                           final isActive = expense['active'] == 1;
                           final showInReport = expense['show_in_report'] == 1;
+                          final isLockedExpense = _isLockedExpense(expense);
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
@@ -292,7 +330,7 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'डिफॉल्ट: ${expense['default_value']}'
-                                    '${expense['calculation_type'] == 'percentage' ? '%' : '₹'}',
+                                    '${expense['calculation_type'] == 'percentage' ? '%' : expense['calculation_type'] == 'pavti_nusar' ? '' : '₹'}',
                                   ),
                                   if (!showInReport)
                                     const Text(
@@ -333,16 +371,17 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                       ],
                                     ),
                                   ),
-                                  PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.delete, size: 20),
-                                        const SizedBox(width: 8),
-                                        const Text('डिलीट'),
-                                      ],
+                                  if (!isLockedExpense)
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.delete, size: 20),
+                                          const SizedBox(width: 8),
+                                          const Text('डिलीट'),
+                                        ],
+                                      ),
                                     ),
-                                  ),
                                 ],
                                 onSelected: (value) async {
                                   if (value == 'edit') {
@@ -364,7 +403,9 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                         expense['id'] as String, isActive);
                                   } else if (value == 'delete') {
                                     await _deleteExpense(
-                                        expense['id'] as String);
+                                      expense['id'] as String,
+                                      isLockedExpense: isLockedExpense,
+                                    );
                                   }
                                 },
                               ),

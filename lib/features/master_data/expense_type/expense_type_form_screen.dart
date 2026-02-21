@@ -16,7 +16,8 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
 
   final nameCtrl = TextEditingController();
   String applyOn = 'farmer'; // 'farmer' or 'buyer'
-  String calculationType = 'per_dag'; // 'per_dag', 'percentage', 'fixed'
+  String calculationType =
+      'per_dag'; // 'per_dag', 'percentage', 'fixed', 'pavti_nusar'
   final defaultValueCtrl = TextEditingController();
   final commissionCtrl = TextEditingController(); // ✅ NEW: Commission field
   bool active = true;
@@ -26,6 +27,32 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
   bool isEditMode = false;
   bool isDefault = false; // ✅ NEW: Track if default expense
   Map<String, dynamic>? expenseData;
+  static const Set<String> _lockedExpenseNames = {
+    'कमिशन',
+    'commission',
+    'हमाली',
+    'वाराई',
+    'आडत',
+    'इतर खर्च',
+    'मो . भाडे',
+    'इनाम',
+  };
+
+  String _normalizeName(String? name) {
+    return (name ?? '').replaceAll(RegExp(r'\s+'), '').toLowerCase();
+  }
+
+  bool _isLockedExpenseName(String? name) {
+    final normalized = _normalizeName(name);
+    return _lockedExpenseNames.any(
+      (lockedName) => _normalizeName(lockedName) == normalized,
+    );
+  }
+
+  bool _isLockedCommissionName(String? name) {
+    final normalized = name?.trim().toLowerCase() ?? '';
+    return normalized == 'कमिशन' || normalized == 'commission';
+  }
 
   @override
   void initState() {
@@ -62,6 +89,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
         commissionCtrl.text = expenseData!['commission']?.toString() ?? '0';
         active = expenseData!['active'] == 1;
         showInReport = expenseData!['show_in_report'] == 1;
+        isDefault = _isLockedCommissionName(expenseData!['name']?.toString());
       }
     } catch (e) {
       print('❌ Error loading expense type: $e');
@@ -79,7 +107,9 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
   Future<void> _saveExpenseType() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final name = nameCtrl.text.trim();
+    final name = isDefault
+        ? (expenseData?['name']?.toString() ?? nameCtrl.text.trim())
+        : nameCtrl.text.trim();
     final defaultValue = double.tryParse(defaultValueCtrl.text) ?? 0;
     final commission = double.tryParse(commissionCtrl.text) ?? 0; // ✅ NEW
 
@@ -244,6 +274,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                     // Name Field
                     TextFormField(
                       controller: nameCtrl,
+                      readOnly: isDefault,
                       decoration: const InputDecoration(
                         labelText: 'खर्चाचे नाव *',
                         hintText: 'हमाली, तोलाई, कमीशन, वाराई',
@@ -308,10 +339,18 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                             value: 'percentage', child: Text('टक्केवारी (%)')),
                         DropdownMenuItem(
                             value: 'fixed', child: Text('फिक्स्ड अमाउंट')),
+                        DropdownMenuItem(
+                            value: 'pavti_nusar', child: Text('पावती नुसार')),
                       ],
                       onChanged: (value) {
-                        if (value != null)
-                          setState(() => calculationType = value);
+                        if (value != null) {
+                          setState(() {
+                            calculationType = value;
+                            if (value == 'pavti_nusar') {
+                              defaultValueCtrl.text = '0';
+                            }
+                          });
+                        }
                       },
                     ),
                     const SizedBox(height: 20),
@@ -323,12 +362,21 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                         labelText: calculationType == 'percentage'
                             ? 'डिफॉल्ट टक्केवारी *'
                             : 'डिफॉल्ट व्हॅल्यू *',
-                        hintText: calculationType == 'percentage' ? '2' : '10',
+                        hintText: calculationType == 'percentage'
+                            ? '2'
+                            : calculationType == 'pavti_nusar'
+                                ? '0'
+                                : '10',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.attach_money),
-                        suffixText: calculationType == 'percentage' ? '%' : '₹',
+                        suffixText: calculationType == 'percentage'
+                            ? '%'
+                            : calculationType == 'pavti_nusar'
+                                ? null
+                                : '₹',
                       ),
                       keyboardType: TextInputType.number,
+                      readOnly: calculationType == 'pavti_nusar',
                       validator: _validateValue,
                     ),
                     const SizedBox(height: 20),
@@ -375,6 +423,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                             Text('• प्रति डाग: डाग × मूल्य'),
                             Text('• टक्केवारी: एकूण रक्कम × %'),
                             Text('• फिक्स्ड: पावती प्रति फिक्स्ड अमाउंट'),
+                            Text('• पावती नुसार: रक्कम manually टाकावी'),
                           ],
                         ),
                       ),
@@ -394,7 +443,8 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
                               SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'हे डिफॉल्ट खर्च आहे. तुम्ही हटवू शकत नाही.',
+                                  'हे डिफॉल्ट खर्च आहे. तुम्ही हटवू शकत नाही.\n'
+                                  'हा डिफॉल्ट खर्च प्रकार लॉक आहे. नाव बदलता किंवा हटवता येणार नाही. बाकी माहिती एडिट करू शकता.',
                                   style: TextStyle(color: Colors.orange),
                                 ),
                               ),
@@ -457,6 +507,7 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
   void dispose() {
     nameCtrl.dispose();
     defaultValueCtrl.dispose();
+    commissionCtrl.dispose();
     super.dispose();
   }
 }
