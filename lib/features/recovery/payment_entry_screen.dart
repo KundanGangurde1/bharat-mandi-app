@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/services/powersync_service.dart';
-import '../../../core/services/firm_data_service.dart'; // ✅ NEW
+import '../../../core/services/firm_data_service.dart';
 import 'payment_model.dart';
 import 'payment_detail_screen.dart';
 import 'payment_ledger_pdf.dart';
@@ -17,6 +18,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   final _formKey = GlobalKey<FormState>();
   final buyerCodeCtrl = TextEditingController();
   final amountCtrl = TextEditingController();
+  final noteCtrl = TextEditingController();
 
   // Focus nodes for proper Enter flow
   late FocusNode buyerCodeFocus;
@@ -29,6 +31,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   double remainingBalance = 0.0;
   bool isLoading = false;
   String? errorMessage;
+  DateTime selectedPaymentDate = DateTime.now();
 
   // Navigation state
   List<Payment> allPayments = [];
@@ -53,6 +56,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   void dispose() {
     buyerCodeCtrl.dispose();
     amountCtrl.dispose();
+    noteCtrl.dispose();
     buyerCodeFocus.dispose();
     amountFocus.dispose();
     super.dispose();
@@ -102,10 +106,31 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   void _loadPaymentToForm(Payment payment) {
     buyerCodeCtrl.text = payment.buyer_code;
     amountCtrl.text = payment.amount.toString();
+    noteCtrl.text = payment.notes ?? '';
     selectedPaymentMode = payment.payment_mode;
     buyerName = payment.buyer_name;
     buyerCode = payment.buyer_code;
+    try {
+      selectedPaymentDate = DateTime.parse(payment.created_at);
+    } catch (_) {
+      selectedPaymentDate = DateTime.now();
+    }
     _onBuyerCodeChanged();
+  }
+
+  Future<void> _pickPaymentDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedPaymentDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      setState(() {
+        selectedPaymentDate = picked;
+      });
+    }
   }
 
   /// Edit current payment
@@ -187,7 +212,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
     } catch (e) {
       print('❌ Error sharing payment: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('शेयर करण्यात त्रुटी: $e')),
+        SnackBar(content: Text('शेअर करण्यात त्रुटी: $e')),
       );
     }
   }
@@ -251,7 +276,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('जमा हटवायचा?'),
-        content: const Text('क्या आप यह जमा हटाना चाहते हैं?'),
+        content: const Text('तुम्हाला ही जमा एन्ट्री हटवायची आहे का?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -310,7 +335,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
           buyerCode = '';
           openingBalance = 0.0;
           remainingBalance = 0.0;
-          errorMessage = 'खरीददार नहीं मिला';
+          errorMessage = 'खरेदीदार सापडला नाही';
         });
         return;
       }
@@ -346,17 +371,17 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
   /// Save payment to database and update buyer balance
   Future<void> _savePayment() async {
     if (buyerCodeCtrl.text.isEmpty) {
-      _showSnackBar('कृपया खरीददार कोड दर्ज करें');
+      _showSnackBar('कृपया खरेदीदार कोड टाका');
       return;
     }
 
     if (amountCtrl.text.isEmpty) {
-      _showSnackBar('कृपया जमा रक्कम दर्ज करें');
+      _showSnackBar('कृपया जमा रक्कम टाका');
       return;
     }
 
     if (buyerName.isEmpty) {
-      _showSnackBar('खरीददार नहीं मिला');
+      _showSnackBar('खरेदीदार सापडला नाही');
       return;
     }
 
@@ -366,10 +391,18 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
       final amount = double.parse(amountCtrl.text);
 
       if (amount <= 0) {
-        throw Exception('रक्कम 0 से अधिक होनी चाहिए');
+        throw Exception('रक्कम 0 पेक्षा जास्त असावी');
       }
 
-      final now = DateTime.now().toIso8601String();
+      final now = DateTime.now();
+      final entryDateTime = DateTime(
+        selectedPaymentDate.year,
+        selectedPaymentDate.month,
+        selectedPaymentDate.day,
+        now.hour,
+        now.minute,
+        now.second,
+      ).toIso8601String();
 
       // Step 1: Insert payment record with firm_id
       // ✅ NEW: Insert with firm_id
@@ -378,23 +411,25 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
         'buyer_name': buyerName,
         'amount': amount,
         'payment_mode': selectedPaymentMode,
-        'notes': '',
-        'created_at': now,
-        'updated_at': now,
+        'notes': noteCtrl.text.trim(),
+        'created_at': entryDateTime,
+        'updated_at': DateTime.now().toIso8601String(),
       };
       await FirmDataService.insertRecordWithFirmId('payments', paymentData);
 
       if (mounted) {
         _showSnackBar(
-          '✅ जमा सफलतापूर्वक दर्ज किया गया: ₹${amount.toStringAsFixed(2)}',
+          '✅ जमा यशस्वीरित्या नोंद झाली: ₹${amount.toStringAsFixed(2)}',
           isSuccess: true,
         );
 
         // Clear form for next entry
         buyerCodeCtrl.clear();
         amountCtrl.clear();
+        noteCtrl.clear();
         setState(() {
           selectedPaymentMode = 'cash';
+          selectedPaymentDate = DateTime.now();
           buyerName = '';
           buyerCode = '';
           openingBalance = 0.0;
@@ -447,7 +482,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
             IconButton(
               icon: const Icon(Icons.share),
               onPressed: _sharePayment,
-              tooltip: 'शेयर करा',
+              tooltip: 'शेअर करा',
             ),
           ],
         ],
@@ -465,7 +500,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                 focusNode: buyerCodeFocus,
                 textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
-                  labelText: 'खरीददार कोड',
+                  labelText: 'खरेदीदार कोड',
                   hintText: 'उदा: B001',
                   prefixIcon: const Icon(Icons.person),
                   border: OutlineInputBorder(
@@ -475,7 +510,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'खरीददार कोड आवश्यक है';
+                    return 'खरेदीदार कोड आवश्यक आहे';
                   }
                   return null;
                 },
@@ -483,6 +518,30 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                   // Move to amount field on Enter
                   FocusScope.of(context).requestFocus(amountFocus);
                 },
+              ),
+              const SizedBox(height: 16),
+
+// Date field (right corner)
+              Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  width: 170,
+                  child: InkWell(
+                    onTap: _pickPaymentDate,
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'दिनांक',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: const Icon(Icons.calendar_today),
+                      ),
+                      child: Text(
+                        DateFormat('dd-MM-yyyy').format(selectedPaymentDate),
+                      ),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -496,7 +555,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'खरीददार: $buyerName',
+                          'खरेदीदार: $buyerName',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -529,10 +588,10 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'जमा रक्कम आवश्यक है';
+                    return 'जमा रक्कम आवश्यक आहे';
                   }
                   if (double.tryParse(value) == null) {
-                    return 'वैध रक्कम दर्ज करें';
+                    return 'वैध रक्कम टाका';
                   }
                   return null;
                 },
@@ -542,6 +601,21 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                     _savePayment();
                   }
                 },
+              ),
+              const SizedBox(height: 16),
+
+// Note field
+              TextFormField(
+                controller: noteCtrl,
+                decoration: InputDecoration(
+                  labelText: 'टिप',
+                  hintText: 'महत्त्वाची नोंद लिहा',
+                  prefixIcon: const Icon(Icons.note_alt_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                maxLines: 2,
               ),
               const SizedBox(height: 16),
 
@@ -566,7 +640,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
 
               // Payment Mode Toggle
               Text(
-                'भुगतान विधि',
+                'जमा प्रकार',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
@@ -574,8 +648,8 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                 spacing: 8,
                 children: paymentModes.map((mode) {
                   final labels = {
-                    'cash': 'नकद',
-                    'bank': 'बैंक',
+                    'cash': 'रोख',
+                    'bank': 'बँक',
                     'upi': 'UPI',
                     'cheque': 'चेक',
                   };
@@ -671,10 +745,10 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          _showSnackBar('PDF तैयार किया जा रहा है...');
+                          _showSnackBar('PDF तयार केला जात आहे...');
                         },
                         icon: const Icon(Icons.share),
-                        label: const Text('शेयर करा'),
+                        label: const Text('शेअर करा'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
@@ -701,7 +775,7 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
               // Info Text
               Center(
                 child: Text(
-                  'Enter दबाकर अगले field मध्ये जा\nAmount नंतर Enter ने Save होईल',
+                  'Enter दाबून पुढच्या field मध्ये जा\nरक्कम नंतर Enter ने Save होईल',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
