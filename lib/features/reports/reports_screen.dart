@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'buyer_recovery_report_screen.dart';
 import 'udhari_report_screen.dart';
 import 'sales_report_screen.dart';
+import 'cash_receipt_report_screen.dart';
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
@@ -83,6 +84,27 @@ class ReportsScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                         builder: (context) => const SalesReportScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading:
+                    const Icon(Icons.payments, color: Colors.teal, size: 40),
+                title: const Text('कॅश रिसीट'),
+                subtitle: const Text(
+                    'पार्टीनुसार तारीखदरम्यान खाते जमा/रोख जमा आणि बाकी रिपोर्ट'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const CashReceiptReportScreen()),
                   );
                 },
               ),
