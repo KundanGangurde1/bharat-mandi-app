@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/powersync_service.dart';
-import '../../core/services/firm_data_service.dart'; // ✅ NEW
+import '../../core/services/firm_data_service.dart';
 import '../buyer/buyer_ledger_screen.dart';
 
 class BuyerRecoveryReportScreen extends StatefulWidget {
@@ -13,40 +13,21 @@ class BuyerRecoveryReportScreen extends StatefulWidget {
 
 class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
   List<Map<String, dynamic>> buyers = [];
-  List<Map<String, dynamic>> areas = [];
-  String? selectedAreaId;
   bool isLoading = true;
+  String partyCodeFilter = '';
 
   @override
   void initState() {
     super.initState();
-    _loadAreas();
     _loadBuyers();
-  }
-
-  Future<void> _loadAreas() async {
-    try {
-      // ✅ NEW: Load areas for active firm
-      final firmId = await FirmDataService.getActiveFirmId();
-      final data = await powerSyncDB.getAll(
-        'SELECT * FROM areas WHERE firm_id = ? AND active = 1 ORDER BY name ASC',
-        [firmId],
-      );
-      setState(() => areas = data);
-    } catch (e) {
-      print('❌ Error loading areas: $e');
-      print('⚠️ Check if active firm is set');
-    }
   }
 
   Future<void> _loadBuyers() async {
     setState(() => isLoading = true);
 
     try {
-      // ✅ NEW: Get buyer recovery for active firm
       final firmId = await FirmDataService.getActiveFirmId();
-      final data =
-          await getBuyerRecovery(firmId: firmId, areaId: selectedAreaId);
+      final data = await getBuyerRecovery(firmId: firmId);
 
       setState(() {
         buyers = data;
@@ -54,16 +35,21 @@ class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
       });
     } catch (e) {
       print('❌ Error loading buyer recovery: $e');
-      print('⚠️ Check if active firm is set');
       setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final filteredBuyers = buyers.where((b) {
+      if (partyCodeFilter.isEmpty) return true;
+      final code = (b['code']?.toString() ?? '').toUpperCase();
+      return code.contains(partyCodeFilter);
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('खरेदीदार थकबाकी यादी'),
+        title: const Text('खातेउतारा'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         actions: [
@@ -77,41 +63,37 @@ class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: DropdownButtonFormField<String>(
-              value: selectedAreaId,
+            child: TextField(
               decoration: const InputDecoration(
-                labelText: 'एरिया फिल्टर',
+                labelText: 'पार्टी कोडने शोधा',
+                hintText: 'उदा. B001',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
               ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('सर्व एरिया')),
-                ...areas.map((a) => DropdownMenuItem(
-                      value: a['id'].toString(),
-                      child: Text(a['name'].toString()),
-                    )),
-              ],
+              textCapitalization: TextCapitalization.characters,
               onChanged: (value) {
-                selectedAreaId = value;
-                _loadBuyers();
+                setState(() {
+                  partyCodeFilter = value.trim().toUpperCase();
+                });
               },
             ),
           ),
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : buyers.isEmpty
-                    ? const Center(child: Text('कोणतीही थकबाकी नाही'))
+                : filteredBuyers.isEmpty
+                    ? const Center(child: Text('नोंदी उपलब्ध नाहीत'))
                     : ListView.builder(
-                        itemCount: buyers.length,
+                        itemCount: filteredBuyers.length,
                         itemBuilder: (context, index) {
-                          final b = buyers[index];
+                          final b = filteredBuyers[index];
                           final balance =
                               (b['balance'] as num?)?.toDouble() ?? 0.0;
 
                           return Card(
                             child: ListTile(
                               title: Text('${b['name']} (${b['code']})'),
-                              subtitle: Text('एरिया: ${b['area_name'] ?? '-'}'),
+                              subtitle: const Text('तपशील/प्रिंट/PDF/शेअर'),
                               trailing: Text(
                                 '₹${balance.toStringAsFixed(2)}',
                                 style: TextStyle(
