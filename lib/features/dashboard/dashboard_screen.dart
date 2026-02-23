@@ -7,7 +7,7 @@ import '../settings/settings_screen.dart';
 import '../transaction/pavti_list_screen.dart';
 import '../firm_setup/firm_setup_screen.dart';
 import '../recovery/payment_entry_screen.dart';
-import '../recovery/daily_payment_report_screen.dart';
+import '../reports/business_summary/business_summary_report_screen.dart';
 import '../../core/active_firm_provider.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -207,12 +207,12 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     _buildQuickActionCard(
                       icon: Icons.bar_chart,
-                      title: 'आजचा व्यापार',
+                      title: 'व्यापार सारांश',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (context) =>
-                                const DailyPaymentReportScreen()),
+                                const BusinessSummaryReportScreen()),
                       ),
                     ),
                     _buildQuickActionCard(
