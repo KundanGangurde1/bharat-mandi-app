@@ -403,7 +403,7 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
     {String? firmId, String? areaId}) async {
   try {
     String query = '''
-      SELECT 
+      SELECT
         b.id,
         b.code,
         b.name,
@@ -411,9 +411,19 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
         a.name AS area_name,
 
         (
-          b.opening_balance
-          + IFNULL(SUM(DISTINCT t.net), 0)
-          - IFNULL(SUM(DISTINCT p.amount), 0)
+         IFNULL(b.opening_balance, 0)
+          + IFNULL((
+              SELECT SUM(CAST(t.net AS REAL))
+              FROM transactions t
+              WHERE t.firm_id = b.firm_id
+                AND t.buyer_code = b.code
+            ), 0)
+          - IFNULL((
+              SELECT SUM(CAST(p.amount AS REAL))
+              FROM payments p
+              WHERE p.firm_id = b.firm_id
+                AND p.buyer_code = b.code
+            ), 0)
         ) AS balance
 
       FROM buyers b
@@ -441,9 +451,21 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
     }
 
     query += '''
-      GROUP BY 
-        b.id, b.code, b.name, b.phone, b.opening_balance, a.name
-      HAVING balance != 0
+       AND (
+        IFNULL(b.opening_balance, 0)
+        + IFNULL((
+            SELECT SUM(CAST(t.net AS REAL))
+            FROM transactions t
+            WHERE t.firm_id = b.firm_id
+              AND t.buyer_code = b.code
+          ), 0)
+        - IFNULL((
+            SELECT SUM(CAST(p.amount AS REAL))
+            FROM payments p
+            WHERE p.firm_id = b.firm_id
+              AND p.buyer_code = b.code
+          ), 0)
+      ) != 0
       ORDER BY b.name ASC
     ''';
 

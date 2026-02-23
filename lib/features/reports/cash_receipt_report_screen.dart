@@ -18,6 +18,7 @@ class _CashReceiptReportScreenState extends State<CashReceiptReportScreen> {
   final buyerCodeCtrl = TextEditingController();
 
   String buyerName = '';
+  String activeFirmName = 'Bharat Mandi';
   bool isLoading = false;
   DateTime fromDate = DateTime.now();
   DateTime toDate = DateTime.now();
@@ -69,11 +70,27 @@ class _CashReceiptReportScreenState extends State<CashReceiptReportScreen> {
     });
   }
 
+  Future<String> _getActiveFirmName() async {
+    final data = await powerSyncDB.getAll(
+      'SELECT name FROM firms WHERE active = 1 LIMIT 1',
+    );
+    return (data.isNotEmpty ? data.first['name']?.toString() : null) ??
+        'Bharat Mandi';
+  }
+
   Future<void> _generateReport() async {
     final code = buyerCodeCtrl.text.trim().toUpperCase();
     if (code.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('कृपया पार्टी कोड टाका')));
+      return;
+    }
+
+    if (fromDate.isAfter(toDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('पासून दिनांक हा पर्यंत दिनांकापेक्षा मोठा नसावा')),
+      );
       return;
     }
 
@@ -89,6 +106,8 @@ class _CashReceiptReportScreenState extends State<CashReceiptReportScreen> {
     try {
       final firmId = await FirmDataService.getActiveFirmId();
       if (firmId == null) throw Exception('कोणताही सक्रिय फर्म नाही');
+
+      final firmName = await _getActiveFirmName();
 
       final fromStr = DateFormat('yyyy-MM-dd').format(fromDate);
       final toStr = DateFormat('yyyy-MM-dd').format(toDate);
@@ -172,6 +191,7 @@ class _CashReceiptReportScreenState extends State<CashReceiptReportScreen> {
       }
 
       setState(() {
+        activeFirmName = firmName;
         ledger = result;
         isLoading = false;
       });
@@ -186,7 +206,7 @@ class _CashReceiptReportScreenState extends State<CashReceiptReportScreen> {
 
   Future<void> _previewPdf() async {
     await BuyerLedgerPdf.generatePreview(
-      firmName: 'Bharat Mandi',
+      firmName: activeFirmName,
       buyerName: buyerName,
       buyerCode: buyerCodeCtrl.text.trim().toUpperCase(),
       fromDate: fromDate,
@@ -197,7 +217,7 @@ class _CashReceiptReportScreenState extends State<CashReceiptReportScreen> {
 
   Future<void> _sharePdf() async {
     final file = await BuyerLedgerPdf.generateFile(
-      firmName: 'Bharat Mandi',
+      firmName: activeFirmName,
       buyerName: buyerName,
       buyerCode: buyerCodeCtrl.text.trim().toUpperCase(),
       fromDate: fromDate,
