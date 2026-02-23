@@ -58,6 +58,43 @@ class InitializationService {
     return (name ?? '').replaceAll(RegExp(r'\s+'), '').toLowerCase();
   }
 
+  static Future<void> _ensureDefaultExpensesForFirm(String firmId) async {
+    final now = DateTime.now().toIso8601String();
+    final existingRows = await powerSyncDB.getAll(
+      'SELECT id, name FROM expense_types WHERE firm_id = ?',
+      [firmId],
+    );
+
+    final existingByName = <String, String>{};
+    for (final row in existingRows) {
+      final name = row['name']?.toString();
+      final id = row['id']?.toString();
+      if (name != null && id != null) {
+        existingByName[_normalizeName(name)] = id;
+      }
+    }
+
+    for (final expense in _defaultExpenseTypes) {
+      final normalizedName = _normalizeName(expense['name'] as String);
+
+      if (existingByName.containsKey(normalizedName)) {
+        continue;
+      }
+
+      final record = {
+        'firm_id': firmId,
+        ...expense,
+        'active': 1,
+        'show_in_report': 1,
+        'created_at': now,
+        'updated_at': now,
+      };
+
+      await insertRecord('expense_types', record);
+      print('✅ Default expense created: ${expense['name']} for firm: $firmId');
+    }
+  }
+
   /// ✅ Initialize default data on app startup
   static Future<void> initializeDefaultData() async {
     try {
@@ -68,42 +105,20 @@ class InitializationService {
         return;
       }
 
-      final now = DateTime.now().toIso8601String();
-      final existingRows = await powerSyncDB.getAll(
-        'SELECT id, name FROM expense_types WHERE firm_id = ?',
-        [firmId],
-      );
-
-      final existingByName = <String, String>{};
-      for (final row in existingRows) {
-        final name = row['name']?.toString();
-        final id = row['id']?.toString();
-        if (name != null && id != null) {
-          existingByName[_normalizeName(name)] = id;
-        }
-      }
-      for (final expense in _defaultExpenseTypes) {
-        final normalizedName = _normalizeName(expense['name'] as String);
-
-        if (existingByName.containsKey(normalizedName)) {
-          print('ℹ️ Default expense already exists: ${expense['name']}');
-          continue;
-        }
-
-        final record = {
-          ...expense,
-          'active': 1,
-          'show_in_report': 1,
-          'created_at': now,
-          'updated_at': now,
-        };
-
-        await insertRecord('expense_types', record);
-        print(
-            '✅ Default expense created: ${expense['name']} for firm: $firmId');
-      }
+      await _ensureDefaultExpensesForFirm(firmId);
     } catch (e) {
       print('❌ Error initializing default data: $e');
+    }
+  }
+
+  /// ✅ Call this after active firm changes to ensure defaults exist for that firm
+  static Future<void> initializeDefaultDataForActiveFirm() async {
+    try {
+      final firmId = await FirmDataService.getActiveFirmId();
+      if (firmId == null) return;
+      await _ensureDefaultExpensesForFirm(firmId);
+    } catch (e) {
+      print('❌ Error initializing default data for active firm: $e');
     }
   }
 }

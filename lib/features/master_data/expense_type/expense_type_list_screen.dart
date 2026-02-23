@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
 import '../../../core/services/firm_data_service.dart'; // ✅ NEW
+import '../../../core/services/initialization_service.dart';
 import '../expense_type/expense_type_form_screen.dart';
 
 class ExpenseTypeListScreen extends StatefulWidget {
@@ -19,7 +20,6 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
 
   static const Set<String> _lockedExpenseNames = {
     'कमिशन',
-    'commission',
     'हमाली',
     'वाराई',
     'आडत',
@@ -55,6 +55,9 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
     setState(() => isLoading = true);
 
     try {
+      // Ensure default expenses exist for currently active firm
+      await InitializationService.initializeDefaultDataForActiveFirm();
+
       // ✅ NEW: Get expense types for active firm only
       List<Map<String, dynamic>> data =
           await FirmDataService.getExpenseTypesForActiveFirm();

@@ -29,7 +29,6 @@ class _ExpenseTypeFormScreenState extends State<ExpenseTypeFormScreen> {
   Map<String, dynamic>? expenseData;
   static const Set<String> _lockedExpenseNames = {
     'कमिशन',
-    'commission',
     'हमाली',
     'वाराई',
     'आडत',
