@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
-import '../../../core/services/firm_data_service.dart'; // ✅ NEW
+import '../../../core/services/firm_data_service.dart';
 
 class BuyerFormScreen extends StatefulWidget {
   final String? buyerId;
@@ -141,7 +141,7 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isEditMode ? 'व्यापारी अपडेट झाला' : 'व्यापारी जोडला गेला',
+            isEditMode ? 'खरेदीदार अपडेट झाला' : 'खरेदीदार जोडला गेला',
           ),
           backgroundColor: Colors.green,
         ),
@@ -192,7 +192,7 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          isEditMode ? 'व्यापारी एडिट करा' : 'नवीन व्यापारी',
+          isEditMode ? 'खरेदीदार एडिट करा' : 'नवीन खरेदीदार',
         ),
         centerTitle: true,
         backgroundColor: Colors.orange[700],
@@ -224,8 +224,8 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
                             Expanded(
                               child: Text(
                                 isEditMode
-                                    ? 'व्यापारीची माहिती अपडेट करा'
-                                    : 'नवीन व्यापारी नोंदवा',
+                                    ? 'खरेदीदार ची माहिती अपडेट करा'
+                                    : 'नवीन खरेदीदार नोंदवा',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -243,7 +243,7 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
                     TextFormField(
                       controller: codeCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'व्यापारी कोड *',
+                        labelText: 'खरेदीदार कोड *',
                         hintText: 'ST, RK, etc.',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.code),
@@ -258,7 +258,7 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
                     TextFormField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'व्यापारी नाव *',
+                        labelText: 'खरेदीदार नाव *',
                         hintText: 'पूर्ण नाव',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.person),

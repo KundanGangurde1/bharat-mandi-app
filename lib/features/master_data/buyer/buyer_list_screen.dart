@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'buyer_form_screen.dart';
 import '../../../core/services/powersync_service.dart';
-import '../../../core/services/firm_data_service.dart'; // ✅ NEW
+import '../../../core/services/firm_data_service.dart';
 
 class BuyerListScreen extends StatefulWidget {
   const BuyerListScreen({super.key});
@@ -65,7 +65,7 @@ class _BuyerListScreenState extends State<BuyerListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('व्यापारी व्यवस्थापन'),
+        title: const Text('खरेदीदार व्यवस्थापन'),
         centerTitle: true,
         backgroundColor: Colors.orange[700],
         foregroundColor: Colors.white,
@@ -120,7 +120,7 @@ class _BuyerListScreenState extends State<BuyerListScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
               decoration: InputDecoration(
-                labelText: 'व्यापारी शोधा',
+                labelText: 'खरेदीदार शोधा',
                 hintText: 'नाव, कोड किंवा फर्म टाइप करा',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
@@ -304,7 +304,7 @@ class _BuyerListScreenState extends State<BuyerListScreen> {
           }
         },
         icon: const Icon(Icons.business_center),
-        label: const Text('नवीन व्यापारी'),
+        label: const Text('नवीन खरेदीदार'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -352,7 +352,7 @@ class _BuyerListScreenState extends State<BuyerListScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'कोणतेही व्यापारी नाहीत',
+            'कोणतेही खरेदीदार नाहीत',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -361,7 +361,7 @@ class _BuyerListScreenState extends State<BuyerListScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'पहिला व्यापारी जोडण्यासाठी + बटण वापरा',
+            'पहिला खरेदीदार जोडण्यासाठी + बटण वापरा',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey),
           ),
