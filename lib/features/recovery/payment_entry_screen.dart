@@ -742,19 +742,6 @@ class _PaymentEntryScreenState extends State<PaymentEntryScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          _showSnackBar('PDF तयार केला जात आहे...');
-                        },
-                        icon: const Icon(Icons.share),
-                        label: const Text('शेअर करा'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               if (currentPayment != null)
