@@ -61,6 +61,15 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
         selectedAreaId = buyerData!['area_id']?.toString();
         balanceCtrl.text = buyerData!['opening_balance']?.toString() ?? '0';
 
+        if ((areaCtrl.text).trim().isEmpty && selectedAreaId != null) {
+          final areaRows = await powerSyncDB.getAll(
+            'SELECT name FROM areas WHERE firm_id = ? AND id = ? LIMIT 1',
+            [firmId, selectedAreaId],
+          );
+          if (areaRows.isNotEmpty) {
+            areaCtrl.text = areaRows.first['name']?.toString() ?? '';
+          }
+        }
         // PowerSync: Check if code is used in transactions
         final isUsed = await isCodeUsedInTransaction(
             buyerData!['code']?.toString() ?? '', 'buyers');
@@ -135,6 +144,7 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
         await updateRecord('buyers', widget.buyerId!, buyer);
       } else {
         buyer['created_at'] = now;
+        buyer['active'] = 1;
         // ✅ NEW: Insert buyer with firm_id
         await FirmDataService.insertRecordWithFirmId('buyers', buyer);
       }
@@ -311,13 +321,22 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
 
                         final areas = snapshot.data ?? [];
 
+                        final areaIds = areas
+                            .map((a) => a['id']?.toString())
+                            .whereType<String>()
+                            .toSet();
+
+                        final dropdownValue = areaIds.contains(selectedAreaId)
+                            ? selectedAreaId
+                            : null;
+
                         return DropdownButtonFormField<String>(
                           decoration: const InputDecoration(
                             labelText: 'एरिया',
                             hintText: 'एरिया निवडा',
                             border: OutlineInputBorder(),
                           ),
-                          value: selectedAreaId,
+                          value: dropdownValue,
                           items: areas.map((area) {
                             return DropdownMenuItem<String>(
                               value: area['id'].toString(),
@@ -327,12 +346,13 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
                           onChanged: (value) {
                             setState(() {
                               selectedAreaId = value;
-                              final selectedArea = areas.firstWhere(
-                                (a) => a['id']?.toString() == value,
-                                orElse: () => <String, dynamic>{},
-                              );
-                              areaCtrl.text =
-                                  selectedArea['name']?.toString() ?? '';
+                              final matchingAreas = areas
+                                  .where((a) => a['id']?.toString() == value)
+                                  .toList();
+                              areaCtrl.text = matchingAreas.isNotEmpty
+                                  ? matchingAreas.first['name']?.toString() ??
+                                      ''
+                                  : '';
                             });
                           },
                           validator: (value) =>
@@ -345,9 +365,10 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
                     // Area
                     TextFormField(
                       controller: areaCtrl,
+                      readOnly: true,
                       decoration: const InputDecoration(
                         labelText: 'क्षेत्र',
-                        hintText: 'गाव, तालुका',
+                        hintText: 'ड्रॉपडाऊनमधून निवडलेला एरिया',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.location_on),
                       ),

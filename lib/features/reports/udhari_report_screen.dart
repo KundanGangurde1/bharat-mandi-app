@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/services/firm_data_service.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/utils/pdf_font_helper.dart';
 
 class UdhariReportScreen extends StatefulWidget {
   const UdhariReportScreen({super.key});
@@ -95,7 +96,7 @@ class _UdhariReportScreenState extends State<UdhariReportScreen> {
         SELECT
           b.code,
           b.name,
-          a.name AS area_name,
+         COALESCE(a.name, b.area) AS area_name,
           (
             IFNULL(b.opening_balance, 0)
             + IFNULL((
@@ -121,7 +122,15 @@ class _UdhariReportScreenState extends State<UdhariReportScreen> {
       final params = <dynamic>[endExclusive, endExclusive, firmId];
 
       if (selectedAreaId != null && selectedAreaId!.isNotEmpty) {
-        query += ' AND b.area_id = ?';
+        query += ''' AND (
+          b.area_id = ?
+          OR b.area = (
+            SELECT ar.name FROM areas ar
+            WHERE ar.id = ? AND ar.firm_id = b.firm_id
+            LIMIT 1
+          )
+        )''';
+        params.add(selectedAreaId);
         params.add(selectedAreaId);
       }
 
@@ -148,32 +157,43 @@ class _UdhariReportScreenState extends State<UdhariReportScreen> {
   }
 
   Future<pw.Document> _buildPdf() async {
+    final regularFont = await PdfFontHelper.regular();
+    final boldFont = await PdfFontHelper.bold();
     final pdf = pw.Document();
 
     final total = reportRows.fold<double>(
       0,
       (sum, row) => sum + ((row['balance'] as num?)?.toDouble() ?? 0.0),
     );
+    final selectedAreaName = selectedAreaId == null
+        ? 'सर्व'
+        : (() {
+            final matching = areas
+                .where((a) => a['id'].toString() == selectedAreaId)
+                .toList();
+            return matching.isNotEmpty ? (matching.first['name'] ?? '-') : '-';
+          })();
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         build: (context) => [
           pw.Text('उधारी यादी',
-              style:
-                  pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              style: pw.TextStyle(font: boldFont, fontSize: 18)),
           pw.SizedBox(height: 6),
           pw.Text(
-              'दिनांक: ${asOfDate.year}-${asOfDate.month.toString().padLeft(2, '0')}-${asOfDate.day.toString().padLeft(2, '0')}'),
+              'दिनांक: ${asOfDate.year}-${asOfDate.month.toString().padLeft(2, '0')}-${asOfDate.day.toString().padLeft(2, '0')}',
+              style: pw.TextStyle(font: regularFont)),
           pw.SizedBox(height: 6),
+          pw.Text('एरिया: $selectedAreaName',
+              style: pw.TextStyle(font: regularFont)),
           pw.Text(
-              'एरिया: ${selectedAreaId == null ? 'सर्व' : areas.firstWhere((a) => a['id'].toString() == selectedAreaId, orElse: () => {
-                    'name': '-'
-                  })['name']}'),
-          pw.Text(
-              'पार्टी: ${selectedBuyerCode == null ? 'सर्व' : selectedBuyerCode}'),
+              'पार्टी: ${selectedBuyerCode == null ? 'सर्व' : selectedBuyerCode}',
+              style: pw.TextStyle(font: regularFont)),
           pw.SizedBox(height: 10),
           pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(font: boldFont),
+            cellStyle: pw.TextStyle(font: regularFont),
             headers: const ['कोड', 'नाव', 'एरिया', 'उधारी'],
             data: reportRows.map((r) {
               final bal = (r['balance'] as num?)?.toDouble() ?? 0.0;
@@ -187,8 +207,7 @@ class _UdhariReportScreenState extends State<UdhariReportScreen> {
           ),
           pw.SizedBox(height: 8),
           pw.Text('एकूण उधारी: ₹${total.toStringAsFixed(2)}',
-              style:
-                  pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+              style: pw.TextStyle(font: boldFont, fontSize: 14)),
         ],
       ),
     );

@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/services/firm_data_service.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/utils/pdf_font_helper.dart';
 
 class SalesReportScreen extends StatefulWidget {
   const SalesReportScreen({super.key});
@@ -111,6 +112,8 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   }
 
   Future<pw.Document> _buildPdf() async {
+    final regularFont = await PdfFontHelper.regular();
+    final boldFont = await PdfFontHelper.bold();
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -118,13 +121,14 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
         pageFormat: PdfPageFormat.a4,
         build: (context) => [
           pw.Text('विक्री रिपोर्ट',
-              style:
-                  pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              style: pw.TextStyle(font: boldFont, fontSize: 18)),
           pw.SizedBox(height: 4),
           pw.Text(
               'दिनांक: ${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}'),
           pw.SizedBox(height: 8),
           pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(font: boldFont),
+            cellStyle: pw.TextStyle(font: regularFont),
             headers: const [
               'पार्टी',
               'माल',
@@ -149,11 +153,14 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
             }).toList(),
           ),
           pw.SizedBox(height: 10),
-          pw.Text('एकूण प्रमाण: ${totalQty.toStringAsFixed(2)}'),
-          pw.Text('एकूण विक्री: ₹${totalGross.toStringAsFixed(2)}'),
-          pw.Text('एकूण खर्च: ₹${totalExpense.toStringAsFixed(2)}'),
+          pw.Text('एकूण प्रमाण: ${totalQty.toStringAsFixed(2)}',
+              style: pw.TextStyle(font: regularFont)),
+          pw.Text('एकूण विक्री: ₹${totalGross.toStringAsFixed(2)}',
+              style: pw.TextStyle(font: regularFont)),
+          pw.Text('एकूण खर्च: ₹${totalExpense.toStringAsFixed(2)}',
+              style: pw.TextStyle(font: regularFont)),
           pw.Text('एकूण निव्वळ: ₹${totalNet.toStringAsFixed(2)}',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              style: pw.TextStyle(font: boldFont)),
         ],
       ),
     );

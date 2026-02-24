@@ -408,7 +408,7 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
         b.code,
         b.name,
         b.phone,
-        a.name AS area_name,
+         COALESCE(a.name, b.area) AS area_name,
 
         (
          IFNULL(b.opening_balance, 0)
@@ -441,7 +441,15 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
 
     // ✅ NEW: Filter by firm_id
     if (firmId != null && firmId.isNotEmpty) {
-      query += ' AND b.firm_id = ?';
+      query += ''' AND (
+        b.area_id = ?
+        OR b.area = (
+          SELECT ar.name FROM areas ar
+          WHERE ar.id = ? AND ar.firm_id = b.firm_id
+          LIMIT 1
+        )
+      )''';
+      params.add(areaId);
       params.add(firmId);
     }
 

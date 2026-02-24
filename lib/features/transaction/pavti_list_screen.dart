@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/services/firm_data_service.dart';
 import '../../core/services/powersync_service.dart';
+import '../../core/utils/pdf_font_helper.dart';
 import 'pavti_detail_screen.dart';
 
 class PavtiListScreen extends StatefulWidget {
@@ -192,20 +193,27 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
       (sum, e) => sum + ((e['gross'] as num?)?.toDouble() ?? 0.0),
     );
 
+    final regularFont = await PdfFontHelper.regular();
+    final boldFont = await PdfFontHelper.bold();
+
     final doc = pw.Document();
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         build: (context) => [
           pw.Text('पावती तपशील',
-              style:
-                  pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              style: pw.TextStyle(font: boldFont, fontSize: 18)),
           pw.SizedBox(height: 6),
-          pw.Text('पावती नं: $parchiId'),
-          pw.Text('शेतकरी: $farmerName ($farmerCode)'),
-          pw.Text('तारीख: $formattedDate'),
+          pw.Text('पावती नं: $parchiId',
+              style: pw.TextStyle(font: regularFont)),
+          pw.Text('शेतकरी: $farmerName ($farmerCode)',
+              style: pw.TextStyle(font: regularFont)),
+          pw.Text('तारीख: $formattedDate',
+              style: pw.TextStyle(font: regularFont)),
           pw.SizedBox(height: 10),
           pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(font: boldFont),
+            cellStyle: pw.TextStyle(font: regularFont),
             headers: const ['व्यापारी', 'माल', 'प्रमाण', 'दर', 'रक्कम'],
             data: entries.map((e) {
               return [
@@ -218,9 +226,12 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
             }).toList(),
           ),
           pw.SizedBox(height: 10),
-          pw.Text('एकूण रक्कम: ₹${gross.toStringAsFixed(2)}'),
-          pw.Text('एकूण खर्च: ₹${totalExpense.toStringAsFixed(2)}'),
-          pw.Text('शुद्ध रक्कम: ₹${net.toStringAsFixed(2)}'),
+          pw.Text('एकूण रक्कम: ₹${gross.toStringAsFixed(2)}',
+              style: pw.TextStyle(font: regularFont)),
+          pw.Text('एकूण खर्च: ₹${totalExpense.toStringAsFixed(2)}',
+              style: pw.TextStyle(font: regularFont)),
+          pw.Text('शुद्ध रक्कम: ₹${net.toStringAsFixed(2)}',
+              style: pw.TextStyle(font: boldFont)),
         ],
       ),
     );
