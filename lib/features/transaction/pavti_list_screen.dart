@@ -54,7 +54,7 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
       final params = <dynamic>[firmId];
 
       if (farmerQuery.isNotEmpty) {
-        query += ' AND LOWER(IFNULL(farmer_name, "")) LIKE ?';
+        query += " AND LOWER(IFNULL(farmer_name, '')) LIKE ?";
         params.add('%$farmerQuery%');
       }
 
@@ -350,9 +350,10 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
                                   0.0;
                           final net = (pavti['net'] as num?)?.toDouble() ?? 0.0;
 
-                          final formattedDate = date != null
-                              ? DateFormat('dd/MM/yyyy')
-                                  .format(DateTime.parse(date))
+                          final parsedDate =
+                              date == null ? null : DateTime.tryParse(date);
+                          final formattedDate = parsedDate != null
+                              ? DateFormat('dd/MM/yyyy').format(parsedDate)
                               : '-';
 
                           return Card(

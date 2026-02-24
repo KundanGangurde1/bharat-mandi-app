@@ -498,15 +498,7 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
 
     // ✅ NEW: Filter by firm_id
     if (firmId != null && firmId.isNotEmpty) {
-      query += ''' AND (
-        b.area_id = ?
-        OR b.area = (
-          SELECT ar.name FROM areas ar
-          WHERE ar.id = ? AND ar.firm_id = b.firm_id
-          LIMIT 1
-        )
-      )''';
-      params.add(areaId);
+      query += ' AND b.firm_id = ?';
       params.add(firmId);
     }
 
