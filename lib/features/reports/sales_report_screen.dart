@@ -124,7 +124,8 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
               style: pw.TextStyle(font: boldFont, fontSize: 18)),
           pw.SizedBox(height: 4),
           pw.Text(
-              'दिनांक: ${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}'),
+              'दिनांक: ${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+              style: pw.TextStyle(font: regularFont)),
           pw.SizedBox(height: 8),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(font: boldFont),

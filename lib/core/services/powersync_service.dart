@@ -5,6 +5,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
 
+import 'firm_data_service.dart';
+
 late PowerSyncDatabase powerSyncDB;
 
 // ✅ PowerSync Schema with all 9 tables + firm_id for data isolation
@@ -339,12 +341,28 @@ Future<void> deleteRecord(String table, String id) async {
 // ============================================================================
 
 // ✅ Check if code is unique across a table
-Future<bool> isCodeUnique(String code, String tableName) async {
+Future<bool> isCodeUnique(
+  String code,
+  String tableName, {
+  String? firmId,
+  String? excludeId,
+}) async {
   try {
-    final results = await powerSyncDB.getAll(
-      'SELECT COUNT(*) as count FROM $tableName WHERE code = ?',
-      [code],
-    );
+    final activeFirmId = firmId ?? await FirmDataService.getActiveFirmId();
+    if (activeFirmId == null || activeFirmId.isEmpty) {
+      throw Exception('No active firm found');
+    }
+
+    String query =
+        'SELECT COUNT(*) as count FROM $tableName WHERE firm_id = ? AND code = ?';
+    final params = <dynamic>[activeFirmId, code];
+
+    if (excludeId != null && excludeId.isNotEmpty) {
+      query += ' AND id != ?';
+      params.add(excludeId);
+    }
+
+    final results = await powerSyncDB.getAll(query, params);
     return results.isEmpty || (results[0]['count'] as int) == 0;
   } catch (e) {
     print('❌ Error checking code uniqueness: $e');

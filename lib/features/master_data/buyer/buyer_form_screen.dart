@@ -112,7 +112,12 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
       if (firmId2 == null) {
         throw Exception('No active firm found');
       }
-      final isUnique = await isCodeUnique(code, 'buyers');
+      final isUnique = await isCodeUnique(
+        code,
+        'buyers',
+        firmId: firmId2,
+        excludeId: isEditMode ? widget.buyerId : null,
+      );
       if (!isUnique) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

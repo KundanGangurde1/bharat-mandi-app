@@ -141,8 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('पुनर्संचयित पुष्टी'),
         content: const Text(
-          'यामुळे सध्याचा सर्व डेटा बदलला जाईल.\n'
-          'शेवटचा घेतलेला backup restore करायचा का?',
+          'यामुळे सध्याचा सर्व डेटा बदलला जाईल.\nशेवटचा घेतलेला backup restore करायचा का?',
         ),
         actions: [
           TextButton(
@@ -208,9 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context) => AlertDialog(
           title: const Text('निवडलेल्या फाईलमधून पुनर्संचयित'),
           content: Text(
-            'ही फाईल restore करायची का?\n'
-            '$selectedPath\n\n'
-            'यामुळे सध्याचा डेटा बदलला जाईल.',
+            'ही फाईल restore करायची का?\n$selectedPath\n\nयामुळे सध्याचा डेटा बदलला जाईल.',
           ),
           actions: [
             TextButton(

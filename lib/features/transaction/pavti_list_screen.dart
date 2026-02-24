@@ -1,17 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/services/firm_data_service.dart';
 import '../../core/services/powersync_service.dart';
-import '../../core/utils/pdf_font_helper.dart';
 import 'pavti_detail_screen.dart';
+import 'pavti_pdf_service.dart';
 
 class PavtiListScreen extends StatefulWidget {
   const PavtiListScreen({super.key});
@@ -44,7 +37,9 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
 
     try {
       final firmId = await FirmDataService.getActiveFirmId();
-      final data = await powerSyncDB.getAll('''
+      final farmerQuery = _farmerSearchController.text.trim().toLowerCase();
+
+      String query = '''
         SELECT
           parchi_id,
           MAX(created_at) as created_at,
@@ -54,9 +49,33 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
           SUM(net) as net
         FROM transactions
         WHERE firm_id = ?
+      ''';
+
+      final params = <dynamic>[firmId];
+
+      if (farmerQuery.isNotEmpty) {
+        query += ' AND LOWER(IFNULL(farmer_name, "")) LIKE ?';
+        params.add('%$farmerQuery%');
+      }
+
+      if (_selectedDate != null) {
+        final dayStart = DateTime(
+          _selectedDate!.year,
+          _selectedDate!.month,
+          _selectedDate!.day,
+        );
+        final dayEnd = dayStart.add(const Duration(days: 1));
+        query += ' AND created_at >= ? AND created_at < ?';
+        params.add(dayStart.toIso8601String());
+        params.add(dayEnd.toIso8601String());
+      }
+
+      query += '''
         GROUP BY parchi_id, farmer_name, farmer_code
         ORDER BY parchi_id DESC
-      ''', [firmId]);
+      ''';
+
+      final data = await powerSyncDB.getAll(query, params);
 
       setState(() {
         pavtis = data;
@@ -72,36 +91,6 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredPavtis {
-    final farmerQuery = _farmerSearchController.text.trim().toLowerCase();
-
-    return pavtis.where((pavti) {
-      final farmerName = (pavti['farmer_name']?.toString() ?? '').toLowerCase();
-      final createdAtRaw = pavti['created_at']?.toString();
-
-      final matchesFarmer =
-          farmerQuery.isEmpty || farmerName.contains(farmerQuery);
-
-      bool matchesDate = true;
-      if (_selectedDate != null) {
-        if (createdAtRaw == null || createdAtRaw.isEmpty) {
-          matchesDate = false;
-        } else {
-          final dt = DateTime.tryParse(createdAtRaw);
-          if (dt == null) {
-            matchesDate = false;
-          } else {
-            matchesDate = dt.year == _selectedDate!.year &&
-                dt.month == _selectedDate!.month &&
-                dt.day == _selectedDate!.day;
-          }
-        }
-      }
-
-      return matchesFarmer && matchesDate;
-    }).toList();
-  }
-
   Future<void> _pickDate() async {
     final initialDate = _selectedDate ?? DateTime.now();
     final picked = await showDatePicker(
@@ -113,11 +102,13 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
 
     if (picked != null) {
       setState(() => _selectedDate = picked);
+      await _loadPavtis();
     }
   }
 
   void _clearDateFilter() {
     setState(() => _selectedDate = null);
+    _loadPavtis();
   }
 
   Future<void> _deletePavti(String parchiId) async {
@@ -179,66 +170,6 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     return entries;
   }
 
-  Future<pw.Document> _buildPavtiPdf({
-    required String parchiId,
-    required String farmerName,
-    required String farmerCode,
-    required String formattedDate,
-    required List<Map<String, dynamic>> entries,
-    required double totalExpense,
-    required double net,
-  }) async {
-    final gross = entries.fold<double>(
-      0,
-      (sum, e) => sum + ((e['gross'] as num?)?.toDouble() ?? 0.0),
-    );
-
-    final regularFont = await PdfFontHelper.regular();
-    final boldFont = await PdfFontHelper.bold();
-
-    final doc = pw.Document();
-    doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        build: (context) => [
-          pw.Text('पावती तपशील',
-              style: pw.TextStyle(font: boldFont, fontSize: 18)),
-          pw.SizedBox(height: 6),
-          pw.Text('पावती नं: $parchiId',
-              style: pw.TextStyle(font: regularFont)),
-          pw.Text('शेतकरी: $farmerName ($farmerCode)',
-              style: pw.TextStyle(font: regularFont)),
-          pw.Text('तारीख: $formattedDate',
-              style: pw.TextStyle(font: regularFont)),
-          pw.SizedBox(height: 10),
-          pw.TableHelper.fromTextArray(
-            headerStyle: pw.TextStyle(font: boldFont),
-            cellStyle: pw.TextStyle(font: regularFont),
-            headers: const ['व्यापारी', 'माल', 'प्रमाण', 'दर', 'रक्कम'],
-            data: entries.map((e) {
-              return [
-                (e['buyer_name'] ?? '').toString(),
-                (e['produce_name'] ?? '').toString(),
-                ((e['quantity'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2),
-                ((e['rate'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2),
-                ((e['gross'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2),
-              ];
-            }).toList(),
-          ),
-          pw.SizedBox(height: 10),
-          pw.Text('एकूण रक्कम: ₹${gross.toStringAsFixed(2)}',
-              style: pw.TextStyle(font: regularFont)),
-          pw.Text('एकूण खर्च: ₹${totalExpense.toStringAsFixed(2)}',
-              style: pw.TextStyle(font: regularFont)),
-          pw.Text('शुद्ध रक्कम: ₹${net.toStringAsFixed(2)}',
-              style: pw.TextStyle(font: boldFont)),
-        ],
-      ),
-    );
-
-    return doc;
-  }
-
   Future<void> _previewPavtiPdf({
     required String parchiId,
     required String farmerName,
@@ -248,7 +179,7 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     required double net,
   }) async {
     final entries = await _loadPavtiEntries(parchiId);
-    final doc = await _buildPavtiPdf(
+    final doc = await PavtiPdfService.buildPavtiPdf(
       parchiId: parchiId,
       farmerName: farmerName,
       farmerCode: farmerCode,
@@ -259,23 +190,7 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     );
 
     if (!mounted) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-            title: const Text('पावती PDF प्रीव्ह्यू'),
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-          ),
-          body: PdfPreview(
-            build: (format) async => doc.save(),
-            canChangePageFormat: false,
-            canChangeOrientation: false,
-          ),
-        ),
-      ),
-    );
+    await PavtiPdfService.previewPdf(context, doc);
   }
 
   Future<void> _printPavtiPdf({
@@ -287,7 +202,7 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     required double net,
   }) async {
     final entries = await _loadPavtiEntries(parchiId);
-    final doc = await _buildPavtiPdf(
+    final doc = await PavtiPdfService.buildPavtiPdf(
       parchiId: parchiId,
       farmerName: farmerName,
       farmerCode: farmerCode,
@@ -297,7 +212,7 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
       net: net,
     );
 
-    await Printing.layoutPdf(onLayout: (format) async => doc.save());
+    await PavtiPdfService.printPdf(doc);
   }
 
   Future<void> _sharePavtiPdf({
@@ -309,7 +224,7 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
     required double net,
   }) async {
     final entries = await _loadPavtiEntries(parchiId);
-    final doc = await _buildPavtiPdf(
+    final doc = await PavtiPdfService.buildPavtiPdf(
       parchiId: parchiId,
       farmerName: farmerName,
       farmerCode: farmerCode,
@@ -319,16 +234,11 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
       net: net,
     );
 
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/pavti_$parchiId.pdf');
-    await file.writeAsBytes(await doc.save());
-    await Share.shareXFiles([XFile(file.path)], text: 'पावती नं: $parchiId');
+    await PavtiPdfService.sharePdf(doc, parchiId);
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredPavtis = _filteredPavtis;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('पावती यादी'),
@@ -362,11 +272,11 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               _farmerSearchController.clear();
-                              setState(() {});
+                              _loadPavtis();
                             },
                           ),
                   ),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => _loadPavtis(),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -396,7 +306,7 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : filteredPavtis.isEmpty
+                : pavtis.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -426,9 +336,9 @@ class _PavtiListScreenState extends State<PavtiListScreen> {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.all(8),
-                        itemCount: filteredPavtis.length,
+                        itemCount: pavtis.length,
                         itemBuilder: (context, index) {
-                          final pavti = filteredPavtis[index];
+                          final pavti = pavtis[index];
                           final date = pavti['created_at'] as String?;
                           final parchiId = pavti['parchi_id']?.toString() ?? '';
                           final farmerName =
