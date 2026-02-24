@@ -58,6 +58,7 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
         phoneCtrl.text = buyerData!['phone']?.toString() ?? '';
         firmCtrl.text = buyerData!['firm_name']?.toString() ?? '';
         areaCtrl.text = buyerData!['area']?.toString() ?? '';
+        selectedAreaId = buyerData!['area_id']?.toString();
         balanceCtrl.text = buyerData!['opening_balance']?.toString() ?? '0';
 
         // PowerSync: Check if code is used in transactions
@@ -295,9 +296,7 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
 
                     // Area Dropdown
                     FutureBuilder<List<Map<String, dynamic>>>(
-                      future: powerSyncDB.getAll(
-                        'SELECT * FROM areas WHERE active = 1 ORDER BY name ASC',
-                      ),
+                      future: FirmDataService.getAreasForActiveFirm(),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
@@ -328,6 +327,12 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
                           onChanged: (value) {
                             setState(() {
                               selectedAreaId = value;
+                              final selectedArea = areas.firstWhere(
+                                (a) => a['id']?.toString() == value,
+                                orElse: () => <String, dynamic>{},
+                              );
+                              areaCtrl.text =
+                                  selectedArea['name']?.toString() ?? '';
                             });
                           },
                           validator: (value) =>
