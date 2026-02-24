@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
-import '../../../core/services/firm_data_service.dart'; // ✅ NEW
+import '../../../core/services/firm_data_service.dart';
+import '../../../core/utils/validation_helper.dart';
 
 class FarmerFormScreen extends StatefulWidget {
   final String? farmerId;
@@ -105,15 +106,10 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
     // Validate code uniqueness across farmer/buyer/produce
     if (!isEditMode || code != farmerData?['code']) {
       try {
-        final firmId = await FirmDataService.getActiveFirmId();
-        if (firmId == null) {
-          throw Exception('No active firm found');
-        }
-        final isUnique = await isMasterCodeUnique(
+        final isUnique = await ValidationHelper.isMasterCodeUnique(
           code,
-          firmId: firmId,
           currentTable: 'farmers',
-          currentId: isEditMode ? widget.farmerId : null,
+          excludeId: isEditMode ? widget.farmerId : null,
         );
 
         if (!isUnique) {

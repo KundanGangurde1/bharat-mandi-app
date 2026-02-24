@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
 import '../../../core/services/firm_data_service.dart';
+import '../../../core/utils/validation_helper.dart';
 
 class ProduceFormScreen extends StatefulWidget {
   final String? produceId;
@@ -103,15 +104,10 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
     }
     if (!isEditMode || code != produceData?['code']) {
       try {
-        final firmId3 = await FirmDataService.getActiveFirmId();
-        if (firmId3 == null) {
-          throw Exception('No active firm found');
-        }
-        final isUnique = await isMasterCodeUnique(
+        final isUnique = await ValidationHelper.isMasterCodeUnique(
           code,
-          firmId: firmId3,
           currentTable: 'produce',
-          currentId: isEditMode ? widget.produceId : null,
+          excludeId: isEditMode ? widget.produceId : null,
         );
 
         if (!isUnique) {

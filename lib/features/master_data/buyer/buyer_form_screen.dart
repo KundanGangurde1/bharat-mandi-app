@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/powersync_service.dart';
 import '../../../core/services/firm_data_service.dart';
+import '../../../core/utils/validation_helper.dart';
 
 class BuyerFormScreen extends StatefulWidget {
   final String? buyerId;
@@ -107,16 +108,10 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
     }
 
     if (!isEditMode || code != buyerData?['code']) {
-      // ✅ NEW: Check code uniqueness for active firm
-      final firmId2 = await FirmDataService.getActiveFirmId();
-      if (firmId2 == null) {
-        throw Exception('No active firm found');
-      }
-      final isUnique = await isMasterCodeUnique(
+      final isUnique = await ValidationHelper.isMasterCodeUnique(
         code,
-        firmId: firmId2,
         currentTable: 'buyers',
-        currentId: isEditMode ? widget.buyerId : null,
+        excludeId: isEditMode ? widget.buyerId : null,
       );
       if (!isUnique) {
         ScaffoldMessenger.of(context).showSnackBar(

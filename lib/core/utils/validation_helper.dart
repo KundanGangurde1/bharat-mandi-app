@@ -1,5 +1,5 @@
 import '../services/firm_data_service.dart';
-import '../services/powersync_service.dart';
+import '../services/powersync_service.dart' as ps;
 
 /// ✅ Centralized validation helper to eliminate code duplication
 /// Used by: farmer_form_screen, buyer_form_screen, produce_form_screen
@@ -23,22 +23,43 @@ class ValidationHelper {
         throw Exception('No active firm found');
       }
 
-      // Build query with optional exclude clause
       String query =
           'SELECT COUNT(*) as count FROM $tableName WHERE firm_id = ? AND code = ?';
-      List<dynamic> params = [firmId, code];
+      final params = <dynamic>[firmId, code];
 
       if (excludeId != null && excludeId.isNotEmpty) {
         query += ' AND id != ?';
         params.add(excludeId);
       }
 
-      final result = await powerSyncDB.getAll(query, params);
-
-      // Code is unique if count is 0
+      final result = await ps.powerSyncDB.getAll(query, params);
       return result.isEmpty || (result[0]['count'] as int) == 0;
     } catch (e) {
       print('❌ Error checking code uniqueness: $e');
+      rethrow;
+    }
+  }
+
+  /// Check if a code is unique across farmers, buyers and produce for active firm.
+  static Future<bool> isMasterCodeUnique(
+    String code, {
+    String? currentTable,
+    String? excludeId,
+  }) async {
+    try {
+      final firmId = await FirmDataService.getActiveFirmId();
+      if (firmId == null) {
+        throw Exception('No active firm found');
+      }
+
+      return ps.isMasterCodeUnique(
+        code,
+        firmId: firmId,
+        currentTable: currentTable,
+        currentId: excludeId,
+      );
+    } catch (e) {
+      print('❌ Error checking master code uniqueness: $e');
       rethrow;
     }
   }
@@ -64,9 +85,8 @@ class ValidationHelper {
 
       final query =
           'SELECT COUNT(*) as count FROM transactions WHERE firm_id = ? AND $codeColumnName = ?';
-      final result = await powerSyncDB.getAll(query, [firmId, code]);
+      final result = await ps.powerSyncDB.getAll(query, [firmId, code]);
 
-      // Code is used if count > 0
       return result.isNotEmpty && (result[0]['count'] as int) > 0;
     } catch (e) {
       print('❌ Error checking if code is used: $e');
@@ -127,7 +147,7 @@ class ValidationHelper {
   /// Returns: null if valid, error message if invalid
   static String? validateBalance(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return null; // Balance is optional
+      return null;
     }
 
     final amount = double.tryParse(value);
@@ -143,7 +163,7 @@ class ValidationHelper {
   /// Returns: null if valid, error message if invalid
   static String? validatePhone(String? phone) {
     if (phone == null || phone.trim().isEmpty) {
-      return null; // Phone is optional
+      return null;
     }
 
     if (!RegExp(r'^[0-9\-\+\s]+$').hasMatch(phone)) {
