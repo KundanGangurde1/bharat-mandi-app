@@ -129,7 +129,7 @@ class _BuyerLedgerScreenState extends State<BuyerLedgerScreen> {
         SELECT 
           created_at AS date,
           'पावती' AS type,
-          parchi_id AS ref,
+            ('पावती #' || parchi_id || ' • ' || IFNULL(produce_name, '') || ' • एकूण: ₹' || IFNULL(ROUND(gross, 2), 0) || ' • खर्च: ₹' || IFNULL(ROUND(total_expense, 2), 0)) AS ref,
           net AS amount
         FROM transactions
         WHERE firm_id = ? AND buyer_code = ?

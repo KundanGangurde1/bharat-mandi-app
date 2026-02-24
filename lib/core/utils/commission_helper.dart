@@ -66,7 +66,7 @@ class CommissionHelper {
     try {
       // Get "कमिशन" expense from expense_types
       final commissionExpense = await powerSyncDB.getAll(
-        'SELECT commission FROM expense_types WHERE firm_id = ? AND name = ? AND active = 1',
+        'SELECT commission, default_value, calculation_type, apply_on FROM expense_types WHERE firm_id = ? AND name = ? AND active = 1',
         [firmId, 'कमिशन'],
       );
 
@@ -75,8 +75,23 @@ class CommissionHelper {
         return 0;
       }
 
-      final commission =
-          (commissionExpense.first['commission'] as num?)?.toDouble() ?? 0;
+      final row = commissionExpense.first;
+      final applyOnType = (row['apply_on']?.toString() ?? '').trim();
+      if (applyOnType.isNotEmpty && applyOnType != applyOn) {
+        return 0;
+      }
+
+      double commission = (row['commission'] as num?)?.toDouble() ?? 0;
+
+      // Fallback: many setups store % in default_value for कमिशन.
+      if (commission <= 0) {
+        final calcType = (row['calculation_type']?.toString() ?? '').trim();
+        final defaultValue = (row['default_value'] as num?)?.toDouble() ?? 0;
+        if (calcType == 'percentage' && defaultValue > 0) {
+          commission = defaultValue;
+          print('ℹ️ Using कमिशन default_value as %: $commission');
+        }
+      }
 
       if (commission <= 0) {
         print('ℹ️ कमिशन expense has no commission value set');

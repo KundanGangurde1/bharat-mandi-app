@@ -14,7 +14,7 @@ class BuyerRecoveryReportScreen extends StatefulWidget {
 class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
   List<Map<String, dynamic>> buyers = [];
   bool isLoading = true;
-  String partyCodeFilter = '';
+  String buyerSearchFilter = '';
 
   @override
   void initState() {
@@ -42,9 +42,14 @@ class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
   @override
   Widget build(BuildContext context) {
     final filteredBuyers = buyers.where((b) {
-      if (partyCodeFilter.isEmpty) return true;
+      if (buyerSearchFilter.isEmpty) return true;
+      final query = buyerSearchFilter;
       final code = (b['code']?.toString() ?? '').toUpperCase();
-      return code.contains(partyCodeFilter);
+      final name = (b['name']?.toString() ?? '').toUpperCase();
+      final phone = (b['phone']?.toString() ?? '').toUpperCase();
+      return code.contains(query) ||
+          name.contains(query) ||
+          phone.contains(query);
     }).toList();
 
     return Scaffold(
@@ -65,15 +70,15 @@ class _BuyerRecoveryReportScreenState extends State<BuyerRecoveryReportScreen> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               decoration: const InputDecoration(
-                labelText: 'पार्टी कोडने शोधा',
-                hintText: 'उदा. B001',
+                labelText: 'पार्टी शोधा (कोड/नाव/फोन)',
+                hintText: 'उदा. B001 / शेटे / 98...',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.search),
               ),
               textCapitalization: TextCapitalization.characters,
               onChanged: (value) {
                 setState(() {
-                  partyCodeFilter = value.trim().toUpperCase();
+                  buyerSearchFilter = value.trim().toUpperCase();
                 });
               },
             ),
