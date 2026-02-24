@@ -95,24 +95,29 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
 
     final code = codeCtrl.text.trim().toUpperCase();
 
+    if (code == 'R') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('R कोड रिझर्व्हड आहे (Rokda साठी)')),
+      );
+      return;
+    }
     if (!isEditMode || code != produceData?['code']) {
       try {
         final firmId3 = await FirmDataService.getActiveFirmId();
         if (firmId3 == null) {
           throw Exception('No active firm found');
         }
-        final existing = await powerSyncDB.getAll(
-          'SELECT COUNT(*) as count FROM produce WHERE firm_id = ? AND code = ? AND id != ?',
-          [firmId3, code, widget.produceId ?? ''],
+        final isUnique = await isMasterCodeUnique(
+          code,
+          firmId: firmId3,
+          currentTable: 'produce',
+          currentId: isEditMode ? widget.produceId : null,
         );
 
-        final count =
-            (existing.isNotEmpty ? (existing.first['count'] as int?) : 0) ?? 0;
-
-        if (count > 0) {
+        if (!isUnique) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('हा कोड आधीच वापरात आहे'),
+              content: Text('हा कोड शेतकरी/खरेदीदार/माल मध्ये आधीच वापरात आहे'),
               backgroundColor: Colors.red,
             ),
           );
@@ -212,8 +217,16 @@ class _ProduceFormScreenState extends State<ProduceFormScreen> {
                         prefixIcon: Icon(Icons.code),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (value == null || value.trim().isEmpty) {
                           return 'माल कोड आवश्यक आहे';
+                        }
+                        final code = value.trim().toUpperCase();
+                        if (!RegExp(r'^[A-Za-z0-9\u0900-\u097F]+$')
+                            .hasMatch(code)) {
+                          return 'फक्त अक्षरे आणि अंक वापरा';
+                        }
+                        if (code == 'R') {
+                          return 'R कोड रिझर्व्हड आहे';
                         }
                         return null;
                       },

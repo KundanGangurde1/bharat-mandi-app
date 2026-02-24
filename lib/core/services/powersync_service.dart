@@ -370,6 +370,45 @@ Future<bool> isCodeUnique(
   }
 }
 
+Future<bool> isMasterCodeUnique(
+  String code, {
+  String? firmId,
+  String? currentTable,
+  String? currentId,
+}) async {
+  try {
+    final activeFirmId = firmId ?? await FirmDataService.getActiveFirmId();
+    if (activeFirmId == null || activeFirmId.isEmpty) {
+      throw Exception('No active firm found');
+    }
+
+    const tables = ['farmers', 'buyers', 'produce'];
+
+    for (final table in tables) {
+      String query =
+          'SELECT COUNT(*) as count FROM $table WHERE firm_id = ? AND code = ?';
+      final params = <dynamic>[activeFirmId, code];
+
+      if (currentTable == table && currentId != null && currentId.isNotEmpty) {
+        query += ' AND id != ?';
+        params.add(currentId);
+      }
+
+      final results = await powerSyncDB.getAll(query, params);
+      final count =
+          (results.isNotEmpty ? results.first['count'] as int? : 0) ?? 0;
+      if (count > 0) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch (e) {
+    print('❌ Error checking master code uniqueness: $e');
+    return false;
+  }
+}
+
 // ✅ Check if code is used in transactions
 Future<bool> isCodeUsedInTransaction(String code, String tableName) async {
   try {

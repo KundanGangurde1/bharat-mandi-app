@@ -5,12 +5,12 @@ import '../services/powersync_service.dart';
 /// Used by: farmer_form_screen, buyer_form_screen, produce_form_screen
 class ValidationHelper {
   /// Check if a code is unique for the active firm
-  /// 
+  ///
   /// Parameters:
   /// - code: The code to check
   /// - tableName: The table to check in (farmers, buyers, produces)
   /// - excludeId: Optional ID to exclude (for edit mode)
-  /// 
+  ///
   /// Returns: true if code is unique, false if already exists
   static Future<bool> isCodeUnique(
     String code,
@@ -44,12 +44,12 @@ class ValidationHelper {
   }
 
   /// Check if a code is used in transactions
-  /// 
+  ///
   /// Parameters:
   /// - code: The code to check
   /// - tableName: The table name (farmers, buyers)
   /// - codeColumnName: The column name to check (farmer_code, buyer_code)
-  /// 
+  ///
   /// Returns: true if code is used, false if not used
   static Future<bool> isCodeUsedInTransactions(
     String code,
@@ -75,11 +75,11 @@ class ValidationHelper {
   }
 
   /// Validate that a code is not reserved
-  /// 
+  ///
   /// Reserved codes:
   /// - Farmers: '100'
   /// - Buyers: 'R' (for Rokda/Cash)
-  /// 
+  ///
   /// Returns: null if valid, error message if reserved
   static String? validateReservedCode(String code, String tableName) {
     final upperCode = code.trim().toUpperCase();
@@ -96,7 +96,7 @@ class ValidationHelper {
   }
 
   /// Validate code format (alphanumeric only)
-  /// 
+  ///
   /// Returns: null if valid, error message if invalid
   static String? validateCodeFormat(String code) {
     if (code.trim().isEmpty) {
@@ -105,7 +105,7 @@ class ValidationHelper {
 
     final upperCode = code.trim().toUpperCase();
 
-    if (!RegExp(r'^[A-Z0-9]+$').hasMatch(upperCode)) {
+    if (!RegExp(r'^[A-Za-z0-9\u0900-\u097F]+$').hasMatch(upperCode)) {
       return 'फक्त अक्षरे आणि अंक वापरा';
     }
 
@@ -113,7 +113,7 @@ class ValidationHelper {
   }
 
   /// Validate name field
-  /// 
+  ///
   /// Returns: null if valid, error message if invalid
   static String? validateName(String? name) {
     if (name == null || name.trim().isEmpty) {
@@ -123,7 +123,7 @@ class ValidationHelper {
   }
 
   /// Validate numeric balance field
-  /// 
+  ///
   /// Returns: null if valid, error message if invalid
   static String? validateBalance(String? value) {
     if (value == null || value.trim().isEmpty) {
@@ -139,7 +139,7 @@ class ValidationHelper {
   }
 
   /// Validate phone number (optional, but if provided should be numeric)
-  /// 
+  ///
   /// Returns: null if valid, error message if invalid
   static String? validatePhone(String? phone) {
     if (phone == null || phone.trim().isEmpty) {
@@ -154,7 +154,7 @@ class ValidationHelper {
   }
 
   /// Get active firm ID with error handling
-  /// 
+  ///
   /// Returns: firmId if available, throws exception if not
   static Future<String> getActiveFirmIdOrThrow() async {
     final firmId = await FirmDataService.getActiveFirmId();

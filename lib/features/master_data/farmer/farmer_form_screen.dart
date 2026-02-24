@@ -92,26 +92,36 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
 
     final code = codeCtrl.text.trim().toUpperCase();
 
-    // Validate code uniqueness (except for edit mode with same code)
+    // Check for reserved code
+    if (code == '100' || code == 'R') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('100 आणि R कोड रिझर्व्हड आहेत')),
+        );
+      }
+      return;
+    }
+
+    // Validate code uniqueness across farmer/buyer/produce
     if (!isEditMode || code != farmerData?['code']) {
       try {
-        // ✅ FIXED: Get firm_id once at the start
         final firmId = await FirmDataService.getActiveFirmId();
         if (firmId == null) {
           throw Exception('No active firm found');
         }
-        final uniqueResult = await powerSyncDB.getAll(
-          'SELECT COUNT(*) as count FROM farmers WHERE firm_id = ? AND code = ?',
-          [firmId, code],
+        final isUnique = await isMasterCodeUnique(
+          code,
+          firmId: firmId,
+          currentTable: 'farmers',
+          currentId: isEditMode ? widget.farmerId : null,
         );
-
-        final isUnique =
-            uniqueResult.isEmpty || (uniqueResult[0]['count'] as int) == 0;
 
         if (!isUnique) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('हा कोड आधीच वापरात आहे')),
+              const SnackBar(
+                  content:
+                      Text('हा कोड शेतकरी/खरेदीदार/माल मध्ये आधीच वापरात आहे')),
             );
           }
           return;
@@ -126,16 +136,6 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
         }
         return;
       }
-    }
-
-    // Check for reserved code
-    if (code == '100') {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('100 कोड रिझर्व्हड आहे')),
-        );
-      }
-      return;
     }
 
     setState(() => isLoading = true);
@@ -198,12 +198,12 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
 
     final code = value.trim().toUpperCase();
 
-    if (!RegExp(r'^[A-Z0-9]+$').hasMatch(code)) {
+    if (!RegExp(r'^[A-Za-z0-9\u0900-\u097F]+$').hasMatch(code)) {
       return 'फक्त अक्षरे आणि अंक वापरा';
     }
 
-    if (code == '100') {
-      return '100 कोड रिझर्व्हड आहे';
+    if (code == '100' || code == 'R') {
+      return '100 आणि R कोड रिझर्व्हड आहेत';
     }
 
     return null;
@@ -332,9 +332,11 @@ class _FarmerFormScreenState extends State<FarmerFormScreen> {
                               ),
                             ),
                             SizedBox(height: 4),
-                            Text('• कोड 100 रिझर्व्हड आहे (नवीन शेतकरीसाठी)'),
+                            Text(
+                                '• कोड 100 (नवीन नावासाठी) आणि R (रोकडा) रिझर्व्हड आहेत'),
                             Text('• कोड कायमस्वरूपी असतो'),
-                            Text('• कोड डुप्लिकेट असू शकत नाही'),
+                            Text(
+                                '• कोड शेतकरी/खरेदीदार/माल मध्ये डुप्लिकेट असू शकत नाही'),
                             Text('• कोड अंकीय किंवा अक्षरी असू शकतो'),
                           ],
                         ),

@@ -112,16 +112,16 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
       if (firmId2 == null) {
         throw Exception('No active firm found');
       }
-      final isUnique = await isCodeUnique(
+      final isUnique = await isMasterCodeUnique(
         code,
-        'buyers',
         firmId: firmId2,
-        excludeId: isEditMode ? widget.buyerId : null,
+        currentTable: 'buyers',
+        currentId: isEditMode ? widget.buyerId : null,
       );
       if (!isUnique) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('हा कोड आधीच वापरात आहे'),
+            content: Text('हा कोड शेतकरी/खरेदीदार/माल मध्ये आधीच वापरात आहे'),
           ),
         );
         return;
@@ -185,7 +185,7 @@ class _BuyerFormScreenState extends State<BuyerFormScreen> {
 
     final code = value.trim().toUpperCase();
 
-    if (!RegExp(r'^[A-Z0-9]+$').hasMatch(code)) {
+    if (!RegExp(r'^[A-Za-z0-9\u0900-\u097F]+$').hasMatch(code)) {
       return 'फक्त अक्षरे आणि अंक वापरा';
     }
 

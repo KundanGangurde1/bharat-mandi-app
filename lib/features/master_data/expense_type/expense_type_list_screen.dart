@@ -308,7 +308,9 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
                                     children: [
                                       Chip(
                                         label: Text(_getApplyOnDisplay(
@@ -320,7 +322,6 @@ class _ExpenseTypeListScreenState extends State<ExpenseTypeListScreen> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 0),
                                       ),
-                                      const SizedBox(width: 8),
                                       Chip(
                                         label: Text(_getModeDisplay(
                                             expense['calculation_type'] ?? '')),

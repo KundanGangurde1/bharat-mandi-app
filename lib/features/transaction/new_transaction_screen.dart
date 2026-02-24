@@ -223,7 +223,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       setState(() {
         if (data.isEmpty) {
           farmerNameCtrl.text = "";
-          farmerNameEditable = true;
+          farmerNameEditable = false;
         } else {
           farmerNameCtrl.text = data.first['name'].toString();
           farmerNameEditable = false;
@@ -574,8 +574,47 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     });
   }
 
+  Future<bool> _validateFarmerBeforeSave() async {
+    final farmerCode = farmerCodeCtrl.text.trim().toUpperCase();
+    final farmerName = farmerNameCtrl.text.trim();
+
+    if (farmerCode.isEmpty) {
+      _showSnackBar('शेतकरी कोड आवश्यक आहे');
+      return false;
+    }
+
+    if (farmerCode == '100') {
+      if (farmerName.isEmpty) {
+        _showSnackBar('100 कोडसाठी शेतकरी नाव टाका');
+        return false;
+      }
+      return true;
+    }
+
+    final firmId = await FirmDataService.getActiveFirmId();
+    final data = await powerSyncDB.getAll(
+      'SELECT name FROM farmers WHERE firm_id = ? AND code = ? AND active = 1 LIMIT 1',
+      [firmId, farmerCode],
+    );
+
+    if (data.isEmpty) {
+      _showSnackBar(
+          '100 कोड वापरून नवीन नाव टाका किंवा विद्यमान शेतकरी कोड टाका');
+      return false;
+    }
+
+    setState(() {
+      farmerNameCtrl.text = data.first['name']?.toString() ?? '';
+      farmerNameEditable = false;
+    });
+    return true;
+  }
+
   // Save Transaction
   Future<void> _saveTransaction() async {
+    final farmerOk = await _validateFarmerBeforeSave();
+    if (!farmerOk) return;
+
     if (rows.isEmpty) {
       _showSnackBar("किमान एक एंट्री आवश्यक आहे");
       return;
