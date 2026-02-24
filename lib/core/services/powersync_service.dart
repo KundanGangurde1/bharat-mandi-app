@@ -535,6 +535,7 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
 
 Future<List<Map<String, dynamic>>> getBuyerLedger(String buyerCode) async {
   try {
+    final activeFirmId = await FirmDataService.getActiveFirmId();
     final query = '''
       SELECT 
         created_at AS date,
@@ -543,7 +544,7 @@ Future<List<Map<String, dynamic>>> getBuyerLedger(String buyerCode) async {
         net AS debit,
         0 AS credit
       FROM transactions
-      WHERE buyer_code = ?
+      WHERE buyer_code = ? AND firm_id = ?
 
       UNION ALL
 
@@ -554,12 +555,13 @@ Future<List<Map<String, dynamic>>> getBuyerLedger(String buyerCode) async {
         0 AS debit,
         amount AS credit
       FROM payments
-      WHERE buyer_code = ?
+      WHERE buyer_code = ? AND firm_id = ?
 
       ORDER BY date ASC
     ''';
 
-    return await powerSyncDB.getAll(query, [buyerCode, buyerCode]);
+    return await powerSyncDB
+        .getAll(query, [buyerCode, activeFirmId, buyerCode, activeFirmId]);
   } catch (e) {
     print('❌ Ledger error: $e');
     return [];
@@ -569,10 +571,12 @@ Future<List<Map<String, dynamic>>> getBuyerLedger(String buyerCode) async {
 // ✅ SINGLE BUYER CURRENT BALANCE (FOR PAYMENT SCREEN)
 Future<double> getBuyerCurrentBalance(String buyerCode) async {
   try {
+    final activeFirmId = await FirmDataService.getActiveFirmId();
+
     // 1️⃣ Opening balance
     final buyerRes = await powerSyncDB.getAll(
-      'SELECT opening_balance FROM buyers WHERE code = ?',
-      [buyerCode],
+      'SELECT opening_balance FROM buyers WHERE code = ? AND firm_id = ?',
+      [buyerCode, activeFirmId],
     );
 
     final opening =
@@ -584,9 +588,9 @@ Future<double> getBuyerCurrentBalance(String buyerCode) async {
       '''
       SELECT IFNULL(SUM(net), 0) AS total
       FROM transactions
-      WHERE buyer_code = ?
+      WHERE buyer_code = ? AND firm_id = ?
       ''',
-      [buyerCode],
+      [buyerCode, activeFirmId],
     );
 
     final purchases = (txnRes.first['total'] as num?)?.toDouble() ?? 0.0;
@@ -596,9 +600,9 @@ Future<double> getBuyerCurrentBalance(String buyerCode) async {
       '''
       SELECT IFNULL(SUM(amount), 0) AS total
       FROM payments
-      WHERE buyer_code = ?
+      WHERE buyer_code = ? AND firm_id = ?
       ''',
-      [buyerCode],
+      [buyerCode, activeFirmId],
     );
 
     final paid = (payRes.first['total'] as num?)?.toDouble() ?? 0.0;
@@ -614,11 +618,12 @@ Future<double> getBuyerCurrentBalance(String buyerCode) async {
 // ✅ Get expense types for farmer
 Future<List<Map<String, dynamic>>> getExpenseTypesForFarmer() async {
   try {
+    final activeFirmId = await FirmDataService.getActiveFirmId();
     return await powerSyncDB.getAll('''
       SELECT * FROM expense_types 
-      WHERE apply_on = 'farmer' AND active = 1
+      WHERE apply_on = 'farmer' AND active = 1 AND firm_id = ?
       ORDER BY name ASC
-    ''');
+    ''', [activeFirmId]);
   } catch (e) {
     print('❌ Error getting farmer expense types: $e');
     return [];
@@ -628,11 +633,12 @@ Future<List<Map<String, dynamic>>> getExpenseTypesForFarmer() async {
 // ✅ Get expense types for buyer
 Future<List<Map<String, dynamic>>> getExpenseTypesForBuyer() async {
   try {
+    final activeFirmId = await FirmDataService.getActiveFirmId();
     return await powerSyncDB.getAll('''
       SELECT * FROM expense_types 
-      WHERE apply_on = 'buyer' AND active = 1
+      WHERE apply_on = 'buyer' AND active = 1 AND firm_id = ?
       ORDER BY name ASC
-    ''');
+    ''', [activeFirmId]);
   } catch (e) {
     print('❌ Error getting buyer expense types: $e');
     return [];

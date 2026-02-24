@@ -642,7 +642,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         print("✏️ Editing Existing Pavti: $parchiId");
       } else {
         // ================= NEW MODE =================
-        // ✅ NEW: Get last parchi_id for active firm
+        // ✅ Get last parchi_id for active firm
         final firmId = await FirmDataService.getActiveFirmId();
         final lastParchi = await powerSyncDB.getAll(
           'SELECT MAX(CAST(parchi_id AS INTEGER)) as max_id FROM transactions WHERE firm_id = ?',
@@ -660,6 +660,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       }
 
       final now = DateTime.now().toIso8601String();
+      final firmId = await FirmDataService.getActiveFirmId();
 
       // ================= INSERT ROWS =================
       for (int i = 0; i < rows.length; i++) {
@@ -672,69 +673,27 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         double buyerQty = row.weight;
         double buyerGross = row.total;
 
-        final firmId = await FirmDataService.getActiveFirmId();
-
-        // ✅ STEP 1: Check produce commission type (TAP A or TAP B)
-        final commissionDetails = await CommissionHelper.getCommissionDetails(
+        // ===== STEP 1: APPLY COMMISSION (TAP A or TAP B) =====
+        final buyerCommission = await CommissionHelper.getCommissionForProduce(
           produceCode: row.produceCode,
+          itemAmount: buyerGross,
+          applyOn: 'buyer',
           firmId: firmId ?? '',
         );
+        buyerExpense += buyerCommission;
 
-        final commissionType =
-            commissionDetails?['commission_type'] ?? 'DEFAULT';
+        final farmerCommission = await CommissionHelper.getCommissionForProduce(
+          produceCode: row.produceCode,
+          itemAmount: buyerGross,
+          applyOn: 'farmer',
+          firmId: firmId ?? '',
+        );
+        farmerExpense += farmerCommission;
 
-        // ✅ STEP 2: Apply commission based on type (ONLY for "कमिशन")
-        if (commissionType == 'PER_PRODUCE') {
-          // ===== TAP A ACTIVE: PRODUCE-SPECIFIC COMMISSION =====
-          print(
-              '🔴 TAP A ACTIVE: Using produce-specific commission for ${row.produceCode}');
-
-          final buyerCommission = await CommissionHelper.applyProduceCommission(
-            produceCode: row.produceCode,
-            itemAmount: buyerGross,
-            applyOn: 'buyer',
-            firmId: firmId ?? '',
-          );
-          buyerExpense += buyerCommission;
-
-          final farmerCommission =
-              await CommissionHelper.applyProduceCommission(
-            produceCode: row.produceCode,
-            itemAmount: buyerGross,
-            applyOn: 'farmer',
-            firmId: firmId ?? '',
-          );
-          farmerExpense += farmerCommission;
-        } else {
-          // ===== TAP B ACTIVE: EXPENSE TYPE COMMISSION (कमिशन) =====
-          print(
-              '🟢 TAP B ACTIVE: Using expense type commission for ${row.produceCode}');
-
-          // Apply "कमिशन" expense commission to buyer
-          final buyerCommission =
-              await CommissionHelper.applyExpenseTypeCommission(
-            itemAmount: buyerGross,
-            applyOn: 'buyer',
-            firmId: firmId ?? '',
-          );
-          buyerExpense += buyerCommission;
-
-          // Apply "कमिशन" expense commission to farmer (if any)
-          final farmerCommission =
-              await CommissionHelper.applyExpenseTypeCommission(
-            itemAmount: buyerGross,
-            applyOn: 'farmer',
-            firmId: firmId ?? '',
-          );
-          farmerExpense += farmerCommission;
-        }
-
-        // ✅ STEP 3: Apply ALL OTHER EXPENSES (non-commission)
-        // These apply regardless of TAP A or TAP B
-        print('📋 Applying other expenses...');
-
+        // ===== STEP 2: APPLY OTHER EXPENSES (non-commission) =====
+        // Skip "कमिशन" expense (already handled by commission logic)
         for (var exp in expenseItems) {
-          // Skip "कमिशन" expense (already handled above)
+          // Skip "कमिशन" expense
           if (exp.name.trim() == 'कमिशन') {
             print(
                 '⏭️ Skipping कमिशन expense (already applied via commission logic)');
@@ -772,7 +731,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
 
         final buyerNet = buyerGross + buyerExpense;
 
-        // ✅ STEP 4: Insert transaction with both buyer and farmer expenses
+        // ===== STEP 3: INSERT TRANSACTION =====
         final transactionData = {
           'parchi_id': parchiId,
           'farmer_code': farmerCodeCtrl.text.trim().toUpperCase(),
@@ -787,7 +746,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           'gross': buyerGross,
           'total_expense': buyerExpense,
           'net': buyerNet,
-          'farmer_expense': farmerExpense, // ✅ NEW: Farmer expense
+          'farmer_expense': farmerExpense,
           'created_at': selectedDate.toIso8601String(),
           'updated_at': now,
         };
@@ -795,7 +754,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         await FirmDataService.insertRecordWithFirmId(
             'transactions', transactionData);
         print(
-            '✅ Transaction row saved: buyer_expense=$buyerExpense, farmer_expense=$farmerExpense');
+            '✅ Transaction saved: buyer_expense=$buyerExpense, farmer_expense=$farmerExpense');
       }
 
       // ================= INSERT EXPENSES =================
@@ -804,7 +763,6 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           final amount =
               double.tryParse(exp.controller.text) ?? exp.defaultValue;
           if (amount > 0) {
-            // ✅ NEW: Insert with firm_id
             final expenseData = {
               'parchi_id': parchiId,
               'expense_type_id': exp.id,
@@ -825,7 +783,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         ),
       );
 
-      Navigator.pop(context); // 🔥 Return to list after save
+      Navigator.pop(context);
     } catch (e) {
       print('❌ Save error: $e');
       print('⚠️ Check if active firm is set');
