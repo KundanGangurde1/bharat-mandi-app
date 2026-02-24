@@ -1,4 +1,3 @@
-// ✅ POWERSYNC SERVICE - COMPLETE WITH FIRM_ID & HELPER FUNCTIONS
 import 'dart:io';
 import 'package:powersync/powersync.dart';
 import 'package:path_provider/path_provider.dart';
@@ -169,14 +168,11 @@ Future<void> initPowerSync() async {
 // ✅ Get PowerSync database instance
 Future<PowerSyncDatabase> getPowerSyncDatabase() async {
   try {
-    if (powerSyncDB == null) {
-      await initPowerSync();
-    }
-  } catch (e) {
-    print('❌ Error getting PowerSync: $e');
+    return powerSyncDB;
+  } catch (_) {
     await initPowerSync();
+    return powerSyncDB;
   }
-  return powerSyncDB;
 }
 
 // ✅ Check if online
@@ -465,10 +461,9 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
         b.code,
         b.name,
         b.phone,
-         COALESCE(a.name, b.area) AS area_name,
-
+        COALESCE(a.name, b.area) AS area_name,
         (
-         IFNULL(b.opening_balance, 0)
+          IFNULL(b.opening_balance, 0)
           + IFNULL((
               SELECT SUM(CAST(t.net AS REAL))
               FROM transactions t
@@ -482,15 +477,9 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
                 AND p.buyer_code = b.code
             ), 0)
         ) AS balance
-
       FROM buyers b
-      LEFT JOIN transactions t
-        ON t.buyer_code = b.code AND t.firm_id = b.firm_id
-      LEFT JOIN payments p
-        ON p.buyer_code = b.code AND p.firm_id = b.firm_id
       LEFT JOIN areas a
         ON a.id = b.area_id
-
       WHERE b.active = 1
     ''';
 
@@ -498,6 +487,11 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
 
     // ✅ NEW: Filter by firm_id
     if (firmId != null && firmId.isNotEmpty) {
+      query += ' AND b.firm_id = ?';
+      params.add(firmId);
+    }
+
+    if (areaId != null && areaId.isNotEmpty) {
       query += ''' AND (
         b.area_id = ?
         OR b.area = (
@@ -507,16 +501,11 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
         )
       )''';
       params.add(areaId);
-      params.add(firmId);
-    }
-
-    if (areaId != null && areaId.isNotEmpty) {
-      query += ' AND b.area_id = ?';
       params.add(areaId);
     }
 
     query += '''
-       AND (
+      AND (
         IFNULL(b.opening_balance, 0)
         + IFNULL((
             SELECT SUM(CAST(t.net AS REAL))
