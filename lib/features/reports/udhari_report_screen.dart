@@ -288,27 +288,6 @@ class _UdhariReportScreenState extends State<UdhariReportScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: selectedBuyerCode,
-                        decoration: const InputDecoration(
-                          labelText: 'पार्टी फिल्टर',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                              value: null, child: Text('सर्व पार्टी')),
-                          ...buyers.map((b) => DropdownMenuItem(
-                                value: b['code'].toString(),
-                                child: Text('${b['name']} (${b['code']})'),
-                              )),
-                        ],
-                        onChanged: (value) {
-                          setState(() => selectedBuyerCode = value);
-                          _loadReport();
-                        },
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 10),

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -20,7 +21,8 @@ class SalesReportScreen extends StatefulWidget {
 
 class _SalesReportScreenState extends State<SalesReportScreen> {
   bool isLoading = true;
-  DateTime selectedDate = DateTime.now();
+  DateTime? fromDate;
+  DateTime? toDate;
   List<Map<String, dynamic>> rows = [];
 
   double totalQty = 0.0;
@@ -31,19 +33,37 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   @override
   void initState() {
     super.initState();
+    // Set default dates: today
+    final now = DateTime.now();
+    fromDate = now;
+    toDate = now;
     _loadReport();
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickFromDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: selectedDate,
+      initialDate: fromDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
 
     if (picked != null) {
-      setState(() => selectedDate = picked);
+      setState(() => fromDate = picked);
+      await _loadReport();
+    }
+  }
+
+  Future<void> _pickToDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: toDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      setState(() => toDate = picked);
       await _loadReport();
     }
   }
@@ -55,12 +75,21 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       final firmId = await FirmDataService.getActiveFirmId();
       if (firmId == null) throw Exception('कोणताही सक्रिय फर्म नाही');
 
-      final start = DateTime(
-        selectedDate.year,
-        selectedDate.month,
-        selectedDate.day,
-      );
-      final end = start.add(const Duration(days: 1));
+      if (fromDate == null || toDate == null) {
+        throw Exception('कृपया तारीख निवडा');
+      }
+
+      // Ensure fromDate <= toDate
+      DateTime start = fromDate!;
+      DateTime end = toDate!;
+      if (start.isAfter(end)) {
+        final temp = start;
+        start = end;
+        end = temp;
+      }
+
+      // Add 1 day to end to include all transactions on that day
+      final endPlusOne = end.add(const Duration(days: 1));
 
       final data = await powerSyncDB.getAll(
         '''SELECT
@@ -77,7 +106,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
            FROM transactions
            WHERE firm_id = ? AND created_at >= ? AND created_at < ?
            ORDER BY buyer_name ASC, created_at ASC''',
-        [firmId, start.toIso8601String(), end.toIso8601String()],
+        [firmId, start.toIso8601String(), endPlusOne.toIso8601String()],
       );
 
       double qty = 0, gross = 0, exp = 0, net = 0;
@@ -111,10 +140,19 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
     }
   }
 
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'निवडा';
+    return DateFormat('dd-MM-yyyy').format(date);
+  }
+
   Future<pw.Document> _buildPdf() async {
     final regularFont = await PdfFontHelper.regular();
     final boldFont = await PdfFontHelper.bold();
     final pdf = pw.Document();
+
+    final dateRange = fromDate == toDate
+        ? _formatDate(fromDate)
+        : '${_formatDate(fromDate)} ते ${_formatDate(toDate)}';
 
     pdf.addPage(
       pw.MultiPage(
@@ -123,9 +161,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
           pw.Text('विक्री रिपोर्ट',
               style: pw.TextStyle(font: boldFont, fontSize: 18)),
           pw.SizedBox(height: 4),
-          pw.Text(
-              'दिनांक: ${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
-              style: pw.TextStyle(font: regularFont)),
+          pw.Text('दिनांक: $dateRange', style: pw.TextStyle(font: regularFont)),
           pw.SizedBox(height: 8),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(font: boldFont),
@@ -208,11 +244,24 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: OutlinedButton.icon(
-              onPressed: _pickDate,
-              icon: const Icon(Icons.date_range),
-              label: Text(
-                  'दिनांक: ${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}'),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickFromDate,
+                    icon: const Icon(Icons.date_range),
+                    label: Text('From: ${_formatDate(fromDate)}'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickToDate,
+                    icon: const Icon(Icons.date_range),
+                    label: Text('To: ${_formatDate(toDate)}'),
+                  ),
+                ),
+              ],
             ),
           ),
           if (isLoading)
@@ -221,7 +270,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
             Expanded(
               child: rows.isEmpty
                   ? const Center(
-                      child: Text('निवडलेल्या दिवशी विक्री नोंद नाही'))
+                      child: Text('निवडलेल्या कालावधीत विक्री नोंद नाही'))
                   : Column(
                       children: [
                         Padding(
