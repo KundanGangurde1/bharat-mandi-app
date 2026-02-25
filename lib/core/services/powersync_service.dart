@@ -484,10 +484,6 @@ Future<List<Map<String, dynamic>>> getBuyerRecovery(
         ) AS balance
 
       FROM buyers b
-      LEFT JOIN transactions t
-        ON t.buyer_code = b.code AND t.firm_id = b.firm_id
-      LEFT JOIN payments p
-        ON p.buyer_code = b.code AND p.firm_id = b.firm_id
       LEFT JOIN areas a
         ON a.id = b.area_id
 
