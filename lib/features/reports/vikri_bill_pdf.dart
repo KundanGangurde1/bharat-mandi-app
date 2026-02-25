@@ -11,10 +11,8 @@ class VikriBillPdf {
     required String buyerName,
     required String buyerCode,
     required DateTime billDate,
-    required List<Map<String, dynamic>>
-        transactions, // All transactions for this buyer on this date
-    required List<Map<String, dynamic>>
-        expenses, // All expenses for this buyer on this date
+    required List<Map<String, dynamic>> transactions,
+    required Map<String, double> expensesByType,
     required double openingBalance,
     required double totalPayments,
   }) async {
@@ -30,8 +28,8 @@ class VikriBillPdf {
       totalGross += (txn['gross'] as num?)?.toDouble() ?? 0.0;
     }
 
-    for (final exp in expenses) {
-      totalExpenseAmount += (exp['amount'] as num?)?.toDouble() ?? 0.0;
+    for (final amount in expensesByType.values) {
+      totalExpenseAmount += amount;
     }
 
     final netAmount = totalGross - totalExpenseAmount;
@@ -92,7 +90,7 @@ class VikriBillPdf {
               pw.Divider(thickness: 1),
               pw.SizedBox(height: 8),
 
-              // Items Table Header
+              // Items Table
               pw.Table(
                 border: pw.TableBorder.all(width: 0.5),
                 columnWidths: {
@@ -154,6 +152,7 @@ class VikriBillPdf {
                   // Data Rows
                   ...transactions.map((txn) {
                     final produceName = txn['produce_name']?.toString() ?? '-';
+                    final dag = (txn['dag'] as num?)?.toDouble() ?? 0.0;
                     final quantity =
                         (txn['quantity'] as num?)?.toDouble() ?? 0.0;
                     final rate = (txn['rate'] as num?)?.toDouble() ?? 0.0;
@@ -171,7 +170,7 @@ class VikriBillPdf {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(4),
                           child: pw.Text(
-                            quantity.toStringAsFixed(2),
+                            dag.toStringAsFixed(2),
                             style: pw.TextStyle(font: regularFont, fontSize: 9),
                             textAlign: pw.TextAlign.right,
                           ),
@@ -179,7 +178,7 @@ class VikriBillPdf {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(4),
                           child: pw.Text(
-                            rate.toStringAsFixed(2),
+                            quantity.toStringAsFixed(2),
                             style: pw.TextStyle(font: regularFont, fontSize: 9),
                             textAlign: pw.TextAlign.right,
                           ),
@@ -207,11 +206,11 @@ class VikriBillPdf {
               ),
               pw.SizedBox(height: 8),
 
-              // Summary Section - Left side (Expenses) and Right side (Totals)
+              // Summary Section
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  // Left Column - Expenses
+                  // Left Column - Expenses Breakdown
                   pw.Expanded(
                     flex: 1,
                     child: pw.Column(
@@ -222,11 +221,7 @@ class VikriBillPdf {
                           style: pw.TextStyle(font: boldFont, fontSize: 10),
                         ),
                         pw.SizedBox(height: 4),
-                        ...expenses.map((exp) {
-                          final expenseName =
-                              exp['expense_name']?.toString() ?? 'खर्च';
-                          final amount =
-                              (exp['amount'] as num?)?.toDouble() ?? 0.0;
+                        ...expensesByType.entries.map((entry) {
                           return pw.Padding(
                             padding: const pw.EdgeInsets.only(bottom: 2),
                             child: pw.Row(
@@ -234,12 +229,12 @@ class VikriBillPdf {
                                   pw.MainAxisAlignment.spaceBetween,
                               children: [
                                 pw.Text(
-                                  expenseName,
+                                  entry.key,
                                   style: pw.TextStyle(
                                       font: regularFont, fontSize: 9),
                                 ),
                                 pw.Text(
-                                  amount.toStringAsFixed(2),
+                                  entry.value.toStringAsFixed(2),
                                   style: pw.TextStyle(
                                       font: regularFont, fontSize: 9),
                                 ),

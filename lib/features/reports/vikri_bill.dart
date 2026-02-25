@@ -25,7 +25,7 @@ class _VikriBillScreenState extends State<VikriBillScreen> {
   DateTime selectedDate = DateTime.now();
 
   List<Map<String, dynamic>> transactions = [];
-  List<Map<String, dynamic>> expenses = [];
+  Map<String, double> expensesByType = {}; // expense_name -> total_amount
   double openingBalance = 0.0;
   double totalPayments = 0.0;
 
@@ -81,6 +81,144 @@ class _VikriBillScreenState extends State<VikriBillScreen> {
     }
   }
 
+  /// Calculate all expenses for buyer on selected date
+  Future<void> _calculateExpenses(
+      String firmId, String buyerCode, String dateStr) async {
+    try {
+      expensesByType.clear();
+
+      // Get all transactions for this buyer on this date
+      final txns = await powerSyncDB.getAll(
+        '''SELECT * FROM transactions
+           WHERE firm_id = ? AND buyer_code = ?
+             AND date(created_at) = date(?)
+           ORDER BY created_at ASC''',
+        [firmId, buyerCode, dateStr],
+      );
+
+      if (txns.isEmpty) return;
+
+      // ============ STEP 1: Per-Produce Commission (TAP A) ============
+      for (var txn in txns) {
+        final produceCode = txn['produce_code']?.toString() ?? '';
+        final buyerGross = (txn['gross'] as num?)?.toDouble() ?? 0.0;
+
+        // Check if this produce has per-produce commission
+        final produceData = await powerSyncDB.getAll(
+          'SELECT commission_type, commission_value, commission_apply_on FROM produce WHERE firm_id = ? AND code = ?',
+          [firmId, produceCode],
+        );
+
+        if (produceData.isNotEmpty) {
+          final produce = produceData.first;
+          final commissionType =
+              produce['commission_type']?.toString() ?? 'DEFAULT';
+
+          if (commissionType == 'PER_PRODUCE') {
+            final applyOn = produce['commission_apply_on']?.toString() ?? '';
+            final commValue =
+                (produce['commission_value'] as num?)?.toDouble() ?? 0.0;
+
+            if (applyOn == 'buyer' && commValue > 0) {
+              final commAmount = (buyerGross * commValue) / 100;
+              expensesByType['कमिशन (मालाप्रमाणे)'] =
+                  (expensesByType['कमिशन (मालाप्रमाणे)'] ?? 0.0) + commAmount;
+              print('✅ Per-Produce Commission: ₹$commAmount');
+            }
+          }
+        }
+      }
+
+      // ============ STEP 2: Expense Type Commission (TAP B - Default) ============
+      // Get "कमिशन" expense from expense_types
+      final commissionExpense = await powerSyncDB.getAll(
+        'SELECT commission, default_value, calculation_type, apply_on FROM expense_types WHERE firm_id = ? AND name = ? AND active = 1',
+        [firmId, 'कमिशन'],
+      );
+
+      if (commissionExpense.isNotEmpty) {
+        final commExp = commissionExpense.first;
+        final applyOnType = (commExp['apply_on']?.toString() ?? '').trim();
+        double commissionPct =
+            (commExp['commission'] as num?)?.toDouble() ?? 0.0;
+
+        // Fallback to default_value if commission is not set
+        if (commissionPct <= 0) {
+          final calcType =
+              (commExp['calculation_type']?.toString() ?? '').trim();
+          final defaultVal =
+              (commExp['default_value'] as num?)?.toDouble() ?? 0.0;
+          if (calcType == 'percentage' && defaultVal > 0) {
+            commissionPct = defaultVal;
+          }
+        }
+
+        if (commissionPct > 0 &&
+            (applyOnType.isEmpty || applyOnType == 'buyer')) {
+          for (var txn in txns) {
+            final produceCode = txn['produce_code']?.toString() ?? '';
+
+            // Check if this produce has per-produce commission
+            final produceData = await powerSyncDB.getAll(
+              'SELECT commission_type FROM produce WHERE firm_id = ? AND code = ?',
+              [firmId, produceCode],
+            );
+
+            bool hasPerProduceComm = false;
+            if (produceData.isNotEmpty) {
+              hasPerProduceComm =
+                  (produceData.first['commission_type']?.toString() ??
+                          'DEFAULT') ==
+                      'PER_PRODUCE';
+            }
+
+            // Only apply expense type commission if NOT per-produce
+            if (!hasPerProduceComm) {
+              final buyerGross = (txn['gross'] as num?)?.toDouble() ?? 0.0;
+              final commAmount = (buyerGross * commissionPct) / 100;
+              expensesByType['कमिशन'] =
+                  (expensesByType['कमिशन'] ?? 0.0) + commAmount;
+              print('✅ Expense Type Commission: ₹$commAmount');
+            }
+          }
+        }
+      }
+
+      // ============ STEP 3: Other Expenses (Non-Commission) ============
+      final otherExpenses = await powerSyncDB.getAll(
+        '''SELECT et.id, et.name as expense_name, SUM(te.amount) as total_amount
+           FROM transaction_expenses te
+           LEFT JOIN expense_types et ON te.expense_type_id = et.id
+           WHERE te.firm_id = ? 
+           AND te.parchi_id IN (
+             SELECT DISTINCT parchi_id FROM transactions 
+             WHERE firm_id = ? AND buyer_code = ? AND date(created_at) = date(?)
+           )
+           AND (et.name IS NULL OR et.name != 'कमिशन')
+           GROUP BY et.id, et.name''',
+        [firmId, firmId, buyerCode, dateStr],
+      );
+
+      for (var exp in otherExpenses) {
+        final expName = exp['expense_name']?.toString() ?? 'इतर खर्च';
+        final amount = (exp['total_amount'] as num?)?.toDouble() ?? 0.0;
+        if (amount > 0) {
+          expensesByType[expName] = (expensesByType[expName] ?? 0.0) + amount;
+          print('✅ Other Expense: $expName = ₹$amount');
+        }
+      }
+
+      print('📊 Total Expenses: ${expensesByType.length} types');
+    } catch (e) {
+      print('❌ Error calculating expenses: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Expense calculation error: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _generateBill() async {
     final code = buyerCodeCtrl.text.trim().toUpperCase();
     if (code.isEmpty) {
@@ -104,9 +242,9 @@ class _VikriBillScreenState extends State<VikriBillScreen> {
 
       await _loadFirmDetails();
 
-      // Get opening balance (balance before this date)
       final fromStr = DateFormat('yyyy-MM-dd').format(selectedDate);
 
+      // Get opening balance
       final openingRes = await powerSyncDB.getAll(
         'SELECT opening_balance FROM buyers WHERE firm_id = ? AND code = ?',
         [firmId, code],
@@ -133,37 +271,29 @@ class _VikriBillScreenState extends State<VikriBillScreen> {
       opening -= (prevPay.first['total'] as num?)?.toDouble() ?? 0.0;
 
       // Get transactions for selected date
-      final toStr = DateFormat('yyyy-MM-dd').format(selectedDate);
       final txns = await powerSyncDB.getAll(
         '''SELECT * FROM transactions
            WHERE firm_id = ? AND buyer_code = ?
-             AND date(created_at) >= date(?) AND date(created_at) <= date(?)
+             AND date(created_at) = date(?)
            ORDER BY created_at ASC''',
-        [firmId, code, fromStr, toStr],
+        [firmId, code, fromStr],
       );
 
       // Get payments for selected date
       final pays = await powerSyncDB.getAll(
         '''SELECT IFNULL(SUM(amount),0) as total FROM payments
            WHERE firm_id = ? AND buyer_code = ?
-             AND date(created_at) >= date(?) AND date(created_at) <= date(?)''',
-        [firmId, code, fromStr, toStr],
+             AND date(created_at) = date(?)''',
+        [firmId, code, fromStr],
       );
 
       double totalPay = (pays.first['total'] as num?)?.toDouble() ?? 0.0;
 
-      // Get expenses for transactions on this date
-      final exps = await powerSyncDB.getAll(
-        '''SELECT te.*, et.name as expense_name 
-           FROM transaction_expenses te
-           LEFT JOIN expense_types et ON te.expense_type_id = et.id
-           WHERE te.firm_id = ? AND te.parchi_id IN (SELECT parchi_id FROM transactions WHERE firm_id = ? AND buyer_code = ? AND date(created_at) >= date(?) AND date(created_at) <= date(?))''',
-        [firmId, firmId, code, fromStr, toStr],
-      );
+      // Calculate all expenses
+      await _calculateExpenses(firmId, code, fromStr);
 
       setState(() {
         transactions = txns;
-        expenses = exps;
         openingBalance = opening;
         totalPayments = totalPay;
         isLoading = false;
@@ -208,7 +338,7 @@ class _VikriBillScreenState extends State<VikriBillScreen> {
         buyerCode: buyerCodeCtrl.text.trim().toUpperCase(),
         billDate: selectedDate,
         transactions: transactions,
-        expenses: expenses,
+        expensesByType: expensesByType,
         openingBalance: openingBalance,
         totalPayments: totalPayments,
       );
@@ -246,6 +376,18 @@ class _VikriBillScreenState extends State<VikriBillScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final totalGross = transactions.fold<double>(
+      0,
+      (sum, txn) => sum + ((txn['gross'] as num?)?.toDouble() ?? 0.0),
+    );
+
+    final totalExpenses =
+        expensesByType.values.fold<double>(0, (sum, val) => sum + val);
+
+    final netAmount = totalGross + totalExpenses;
+
+    final finalBalance = openingBalance + netAmount - totalPayments;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('विक्री बिल'),
@@ -376,44 +518,42 @@ class _VikriBillScreenState extends State<VikriBillScreen> {
                   // Summary
                   _buildSummaryRow(
                     'एकुण रक्कम:',
-                    transactions
-                        .fold<double>(
-                          0,
-                          (sum, txn) =>
-                              sum + ((txn['gross'] as num?)?.toDouble() ?? 0.0),
-                        )
-                        .toStringAsFixed(2),
+                    totalGross.toStringAsFixed(2),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+
+                  // Expenses Breakdown
+                  if (expensesByType.isNotEmpty) ...[
+                    const Text(
+                      'एकुण खर्च:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...expensesByType.entries.map((entry) {
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 16, bottom: 4),
+                        child: _buildSummaryRow(
+                          '  • ${entry.key}:',
+                          entry.value.toStringAsFixed(2),
+                        ),
+                      );
+                    }).toList(),
+                    const SizedBox(height: 8),
+                  ],
+
                   _buildSummaryRow(
                     'एकुण खर्च:',
-                    expenses
-                        .fold<double>(
-                          0,
-                          (sum, exp) =>
-                              sum +
-                              ((exp['amount'] as num?)?.toDouble() ?? 0.0),
-                        )
-                        .toStringAsFixed(2),
+                    totalExpenses.toStringAsFixed(2),
                   ),
                   const SizedBox(height: 8),
                   const Divider(),
                   const SizedBox(height: 8),
                   _buildSummaryRow(
                     'नेट रक्कम:',
-                    (transactions.fold<double>(
-                              0,
-                              (sum, txn) =>
-                                  sum +
-                                  ((txn['gross'] as num?)?.toDouble() ?? 0.0),
-                            ) -
-                            expenses.fold<double>(
-                              0,
-                              (sum, exp) =>
-                                  sum +
-                                  ((exp['amount'] as num?)?.toDouble() ?? 0.0),
-                            ))
-                        .toStringAsFixed(2),
+                    netAmount.toStringAsFixed(2),
                     isBold: true,
                   ),
                   const SizedBox(height: 16),
@@ -427,22 +567,13 @@ class _VikriBillScreenState extends State<VikriBillScreen> {
                   ),
                   const SizedBox(height: 8),
                   _buildSummaryRow(
+                    'आज जमा:',
+                    totalPayments.toStringAsFixed(2),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildSummaryRow(
                     'एकुण बाकी:',
-                    (openingBalance +
-                            transactions.fold<double>(
-                              0,
-                              (sum, txn) =>
-                                  sum +
-                                  ((txn['gross'] as num?)?.toDouble() ?? 0.0),
-                            ) -
-                            expenses.fold<double>(
-                              0,
-                              (sum, exp) =>
-                                  sum +
-                                  ((exp['amount'] as num?)?.toDouble() ?? 0.0),
-                            ) -
-                            totalPayments)
-                        .toStringAsFixed(2),
+                    finalBalance.toStringAsFixed(2),
                     isBold: true,
                   ),
 
