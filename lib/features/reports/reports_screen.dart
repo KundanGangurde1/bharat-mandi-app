@@ -3,6 +3,7 @@ import 'buyer_recovery_report_screen.dart';
 import 'udhari_report_screen.dart';
 import 'sales_report_screen.dart';
 import 'cash_receipt_report_screen.dart';
+import 'vikri_bill.dart';
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
@@ -105,6 +106,26 @@ class ReportsScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                         builder: (context) => const CashReceiptReportScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: const Icon(Icons.receipt, color: Colors.red, size: 40),
+                title: const Text('विक्री बिल'),
+                subtitle: const Text(
+                    'खरीददारला दिण्यासाठी बिल, PDF/प्रिंट/शेअर सुविधा'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const VikriBillScreen()),
                   );
                 },
               ),
