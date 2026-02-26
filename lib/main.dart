@@ -5,10 +5,20 @@ import 'core/expense_controller.dart';
 import 'core/active_firm_provider.dart';
 import 'app/AppRootScreen.dart';
 import 'core/services/initialization_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/services/migration_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
 
+  await Supabase.initialize(
+    url: 'https://tbwmkazufzwyucmyoddj.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRid21rYXp1Znp3eXVjbXlvZGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMDA3ODgsImV4cCI6MjA4NTY3Njc4OH0.7TY_Yy9B1rhqqLbadvYGlakfG-2lIRTbBluMm78muE8',
+  );
+
+  runApp(MyApp());
   try {
     // ✅ Initialize PowerSync Database
     await initPowerSync();

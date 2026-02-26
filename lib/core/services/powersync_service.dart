@@ -156,7 +156,9 @@ Future<void> initPowerSync() async {
     );
 
     await powerSyncDB.initialize();
-
+    await powerSyncDB.connect(
+      connector: DevConnector(),
+    );
     print('✅ PowerSync initialized successfully');
     print('✅ All 9 tables ready for offline-first sync');
     print('✅ Firm-based data isolation enabled');
@@ -659,5 +661,36 @@ Future<void> deletePavti(int parchiId) async {
     print('✅ Pavti deleted: $parchiId');
   } catch (e) {
     print('❌ Error deleting pavti: $e');
+  }
+}
+
+class DevConnector extends PowerSyncBackendConnector {
+  @override
+  Future<PowerSyncCredentials?> fetchCredentials() async {
+    return PowerSyncCredentials(
+      endpoint: 'https://698359b295daf42d8a30d592.powersync.journeyapps.com',
+      token:
+          'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzIyM2Q0ZTMifQ.eyJzdWIiOiJiaGFyYXQtbWFuZGktZGV2IiwiaWF0IjoxNzcyMTM3MzQ1LCJpc3MiOiJodHRwczovL3Bvd2Vyc3luYy1hcGkuam91cm5leWFwcHMuY29tIiwiYXVkIjoiaHR0cHM6Ly82OTgzNTliMjk1ZGFmNDJkOGEzMGQ1OTIucG93ZXJzeW5jLmpvdXJuZXlhcHBzLmNvbSIsImV4cCI6MTc3MjE4MDU0NX0.Mdulcdv3qAK-t98z_iStRtDDwKZb6JRUCt0yJQQpjZQDw4Jx7kuGpZp8ADqLrQX1qOdQmUhHy_B2ysfN7awD-PZZYXAXZsGnR11yC-mKHq__Vm8KJVAE2pQSK6zRaFT1dC8d665fabAqFl_5QNnG0Njkb2jynav4c6bkT_ckaUiRP6TMidCnapKRYNiMvqRVOdRCEsj43yHTl5_NocUwPCSSaJi1Z_GAo_Xuc8wpRmSkKmIeT275ZlO53c7T0RPI1aA306G-PUqIPEdeohpMjtvcw9yorvBpHVRybYMbzed1vjRqNEE01xW8J5f4RP1rnDOO4QUBh85-SWRd9qCdQA',
+    );
+  }
+
+  @override
+  void invalidateCredentials() {}
+
+  // 🔥 REQUIRED in new PowerSync SDK
+  @override
+  Future<void> uploadData(
+    PowerSyncDatabase database,
+  ) async {
+    final transaction = await database.getNextCrudTransaction();
+
+    if (transaction == null) return;
+
+    try {
+      // DEV MODE → cloud already handles inserts
+      await transaction.complete();
+    } catch (e) {
+      await transaction.complete();
+    }
   }
 }
