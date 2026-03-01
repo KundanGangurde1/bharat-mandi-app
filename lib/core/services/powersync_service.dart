@@ -4,6 +4,7 @@ import 'package:powersync/powersync.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'firm_data_service.dart';
 
@@ -308,6 +309,8 @@ Future<void> insertRecord(
       'INSERT INTO $table ($columns) VALUES ($placeholders)',
       values,
     );
+    // 🔥 CLOUD PUSH (NEW - DO NOT REMOVE)
+    await Supabase.instance.client.from(table).upsert(record);
   });
 }
 
@@ -325,6 +328,8 @@ Future<void> updateRecord(
       'UPDATE $table SET $updates WHERE id = ?',
       values,
     );
+    // 🔥 CLOUD UPDATE (NEW)
+    await Supabase.instance.client.from(table).update(data).eq('id', id);
   });
 }
 
@@ -335,6 +340,8 @@ Future<void> deleteRecord(String table, String id) async {
       'DELETE FROM $table WHERE id = ?',
       [id],
     );
+    // 🔥 CLOUD DELETE (NEW)
+    await Supabase.instance.client.from(table).delete().eq('id', id);
   });
 }
 
@@ -670,7 +677,7 @@ class DevConnector extends PowerSyncBackendConnector {
     return PowerSyncCredentials(
       endpoint: 'https://698359b295daf42d8a30d592.powersync.journeyapps.com',
       token:
-          'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzIyM2Q0ZTMifQ.eyJzdWIiOiJiaGFyYXQtbWFuZGktZGV2IiwiaWF0IjoxNzcyMTM3MzQ1LCJpc3MiOiJodHRwczovL3Bvd2Vyc3luYy1hcGkuam91cm5leWFwcHMuY29tIiwiYXVkIjoiaHR0cHM6Ly82OTgzNTliMjk1ZGFmNDJkOGEzMGQ1OTIucG93ZXJzeW5jLmpvdXJuZXlhcHBzLmNvbSIsImV4cCI6MTc3MjE4MDU0NX0.Mdulcdv3qAK-t98z_iStRtDDwKZb6JRUCt0yJQQpjZQDw4Jx7kuGpZp8ADqLrQX1qOdQmUhHy_B2ysfN7awD-PZZYXAXZsGnR11yC-mKHq__Vm8KJVAE2pQSK6zRaFT1dC8d665fabAqFl_5QNnG0Njkb2jynav4c6bkT_ckaUiRP6TMidCnapKRYNiMvqRVOdRCEsj43yHTl5_NocUwPCSSaJi1Z_GAo_Xuc8wpRmSkKmIeT275ZlO53c7T0RPI1aA306G-PUqIPEdeohpMjtvcw9yorvBpHVRybYMbzed1vjRqNEE01xW8J5f4RP1rnDOO4QUBh85-SWRd9qCdQA',
+          'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzIyM2Q0ZTMifQ.eyJzdWIiOiJkYXRhc3luYyB0b2tlbiIsImlhdCI6MTc3MjM2MTA0OSwiaXNzIjoiaHR0cHM6Ly9wb3dlcnN5bmMtYXBpLmpvdXJuZXlhcHBzLmNvbSIsImF1ZCI6Imh0dHBzOi8vNjk4MzU5YjI5NWRhZjQyZDhhMzBkNTkyLnBvd2Vyc3luYy5qb3VybmV5YXBwcy5jb20iLCJleHAiOjE3NzI0MDQyNDl9.ogySmvK2yxSTK8H1gx-7UETqTrqnAbwMvQE2_iGuOb8Dwve3i_983QX9zLX7CgZBFz0f8LN8XSF9ZNTyPDlur_hUJjebY5DEkaVbcFH_bbfUW7Ay_BOwNYAMvK7bXj_Sk9jQ3eJIvVWTZgVyikqwM_LRXiK4ksalLtjIYK88pQ43TrASHiFdvJ7OLbfIZG9FL5n3NdAu5DceXafIJS33y7a8NxT8ghlORNChjeI5Wn_2dRTI5h4Kj7QHCb3fHrZOunu4imfDDN2G81l9Sz-quDg2ErBw-d2lE0kNp-IyLaSL3eDcsMPADXksf0lE8a9K_kWHPatOglWLH-Ed8S0GqQ',
     );
   }
 
