@@ -4,7 +4,7 @@ class AuthService {
   static final _client = Supabase.instance.client;
 
   // =========================
-  // LOGIN
+  // SEND OTP TO EMAIL
   // =========================
 
   static Future<void> sendLoginLink(String email) async {
@@ -12,6 +12,24 @@ class AuthService {
       email: email,
       shouldCreateUser: true,
     );
+  }
+
+  // =========================
+  // VERIFY OTP
+  // =========================
+
+  static Future<bool> verifyOtp(String email, String token) async {
+    try {
+      final response = await _client.auth.verifyOTP(
+        type: OtpType.email,
+        email: email,
+        token: token,
+      );
+      return response.session != null;
+    } catch (e) {
+      print('❌ OTP verification error: $e');
+      return false;
+    }
   }
 
   // =========================
