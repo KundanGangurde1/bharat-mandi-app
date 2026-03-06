@@ -19,7 +19,12 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
         appBar: AppBar(
-          title: const Text('डॅशबोर्ड'),
+          title: Consumer<ActiveFirmProvider>(
+            builder: (context, firmProvider, _) {
+              final firmName = firmProvider.activeFirm?.name ?? 'डॅशबोर्ड';
+              return Text(firmName);
+            },
+          ),
           backgroundColor: Colors.green,
           foregroundColor: Colors.white,
         ),
@@ -44,9 +49,9 @@ class DashboardScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'भारत मंडी',
-                            style: TextStyle(
+                          Text(
+                            firmName,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -61,13 +66,6 @@ class DashboardScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '🏢 $firmName',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
                             ),
                           ),
                         ],
@@ -175,10 +173,6 @@ class DashboardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'त्वरित क्रिया',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
                 const SizedBox(height: 16),
                 GridView.count(
                   crossAxisCount: isMobile ? 2 : 4,
